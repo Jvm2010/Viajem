@@ -1,0 +1,2 @@
+/* minimal extra styles if needed */
+body{font-family:Inter, system-ui, Arial, sans-serif}

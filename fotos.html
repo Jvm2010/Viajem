@@ -3,83 +3,108 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Fotos Tumblr — Viagem</title>
+  <title>Fotos & Vídeos — Viagem</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="manifest" href="manifest.json">
-  <script type="module" src="firebase.js"></script>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body class="bg-gray-50 text-gray-800">
-  <header class="bg-white shadow p-4">
+  <header class="bg-white shadow p-4 sticky top-0 z-10">
     <div class="max-w-4xl mx-auto flex items-center justify-between">
-      <h1 class="text-lg font-semibold">Fotos Tumblr</h1>
-      <a href="index.html" class="text-sm text-sky-600">← Voltar</a>
+      <h1 class="text-lg font-semibold">Fotos & Vídeos</h1>
+      <nav class="text-sm space-x-4">
+        <a href="index.html" class="text-sky-600">Início</a>
+        <a href="roteiro.html" class="text-sky-600">Roteiro</a>
+      </nav>
     </div>
   </header>
-  <main class="max-w-4xl mx-auto p-6 grid grid-cols-1 gap-6">
-    <section class="bg-white rounded-2xl shadow p-4">
-      <div class="flex flex-col sm:flex-row gap-4 items-start">
-        <div class="flex-1">
-          <video id="camera" autoplay playsinline class="w-full rounded-md bg-black"></video>
-          <div class="mt-3 flex gap-2">
-            <button id="snap" class="px-4 py-2 rounded-md bg-sky-600 text-white">📷 Capturar</button>
-            <button id="save" class="px-4 py-2 rounded-md bg-emerald-600 text-white">💾 Salvar (Nuvem)</button>
-            <button id="download" class="px-4 py-2 rounded-md border">⬇️ Baixar</button>
-          </div>
+
+  <main class="max-w-4xl mx-auto p-4 space-y-4">
+    <section class="card">
+      <h2 class="font-semibold">Galeria</h2>
+      <p class="small">Tire fotos direto do celular ou faça upload. Use templates rápidos para criar um "tumblr" estilizado.</p>
+
+      <div class="mt-3 grid grid-cols-1 gap-3">
+        <div class="flex gap-2">
+          <input id="file-input" type="file" accept="image/*" multiple class="p-2 card" />
+          <button id="open-camera" class="badge">Abrir Câmera</button>
         </div>
-        <div class="w-full sm:w-72">
-          <canvas id="canvas" class="w-full rounded-md bg-gray-100"></canvas>
-          <div class="mt-3 grid grid-cols-2 gap-2">
-            <button data-filter="none" class="py-2 rounded-md border">Original</button>
-            <button data-filter="vintage" class="py-2 rounded-md border">Vintage</button>
-            <button data-filter="film" class="py-2 rounded-md border">Filme</button>
-            <button data-filter="bw" class="py-2 rounded-md border">PB</button>
+
+        <div class="mt-2 grid grid-cols-3 gap-2" id="gallery"></div>
+
+        <div class="mt-4">
+          <h4 class="font-semibold">Templates rápidos (para vídeos de casal)</h4>
+          <p class="small">Escolha um template e clique em "Criar slideshow" para gerar uma página com transições que pode ser gravada.</p>
+          <select id="template" class="p-2 card mt-2">
+            <option value="romantic">Romântico - fades suaves com trilha lenta</option>
+            <option value="adventure">Aventura - cortes rápidos e zooms</option>
+            <option value="cinematic">Cinemático - barras pretas e letras grandes</option>
+          </select>
+          <div class="mt-2 flex gap-2">
+            <button id="make-slideshow" class="badge">Criar slideshow</button>
+            <button id="clear-gallery" class="text-sm text-red-600">Limpar galeria</button>
           </div>
         </div>
       </div>
-      <div class="mt-4 text-xs text-gray-500">Salve localmente ou na nuvem. Fotos salvas na nuvem são privadas no seu USER_ID.</div>
-    </section>
-    <section class="bg-white rounded-2xl shadow p-4">
-      <h3 class="font-medium mb-2">Galeria (local)</h3>
-      <div id="gallery" class="grid grid-cols-2 sm:grid-cols-4 gap-3"></div>
     </section>
   </main>
 
   <script>
-  import { dbSaveUserPhoto, dbListUserPhotos } from './firebase.js';
-  const video = document.getElementById('camera');
-  const canvas = document.getElementById('canvas');
-  const ctx = canvas.getContext('2d');
   const gallery = document.getElementById('gallery');
+  const filesInput = document.getElementById('file-input');
+  let images = JSON.parse(localStorage.getItem('viagem:photos')||'[]');
 
-  async function startCamera(){
-    try { const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio:false }); video.srcObject = stream; await video.play(); } catch(e){ console.error('Camera error', e); alert('Erro ao acessar a câmera.'); }
-  }
-  startCamera();
-
-  function resizeCanvasToVideo(){ canvas.width = video.videoWidth || 640; canvas.height = video.videoHeight || 480; }
-  document.getElementById('snap').onclick = () => { resizeCanvasToVideo(); ctx.drawImage(video, 0, 0, canvas.width, canvas.height); applyFilter(currentFilter); };
-
-  let currentFilter = 'none';
-  function applyFilter(name){ const imgData = ctx.getImageData(0,0,canvas.width,canvas.height); const d = imgData.data; if(name==='vintage'){ for(let i=0;i<d.length;i+=4){ d[i]=d[i]*0.95+20; d[i+1]=d[i+1]*0.9+10; d[i+2]=d[i+2]*0.85; } } else if(name==='film'){ for(let i=0;i<d.length;i+=4){ d[i]=d[i]*1.05; d[i+1]=d[i+1]*1.02; d[i+2]=d[i+2]*0.9; } } else if(name==='bw'){ for(let i=0;i<d.length;i+=4){ const v=0.3*d[i]+0.59*d[i+1]+0.11*d[i+2]; d[i]=d[i+1]=d[i+2]=v; } } ctx.putImageData(imgData,0,0); ctx.globalCompositeOperation='overlay'; ctx.fillStyle='rgba(255,240,230,0.03)'; ctx.fillRect(0,0,canvas.width,canvas.height); ctx.globalCompositeOperation='source-over'; }
-
-  document.querySelectorAll('[data-filter]').forEach(b=>b.onclick=()=>{ currentFilter=b.dataset.filter; if(canvas.width) applyFilter(currentFilter); });
-
-  document.getElementById('save').onclick = async () => {
-    if(!canvas.width) return alert('Capture uma foto primeiro.');
-    const data = canvas.toDataURL('image/jpeg', 0.92);
-    // save to cloud
-    const id = await dbSaveUserPhoto(data);
-    alert('Foto salva na nuvem (id: '+id+')');
-    loadGallery();
-  }
-  document.getElementById('download').onclick = () => { if(!canvas.width) return alert('Capture uma foto primeiro.'); const url=canvas.toDataURL('image/jpeg',0.92); const a=document.createElement('a'); a.href=url; a.download='foto.jpg'; a.click(); };
-
-  function loadGallery(){ gallery.innerHTML=''; const local = JSON.parse(localStorage.getItem('photos')||'[]'); local.forEach((p,i)=>{ const img=document.createElement('img'); img.src=p.data; img.className='w-full h-32 object-cover rounded-md'; const wrap=document.createElement('div'); wrap.appendChild(img); const btns=document.createElement('div'); btns.className='flex gap-2 mt-1'; const down=document.createElement('button'); down.textContent='Baixar'; down.className='text-xs p-1 border rounded'; down.onclick=()=>{ const a=document.createElement('a'); a.href=p.data; a.download='foto.jpg'; a.click(); }; const del=document.createElement('button'); del.textContent='Excluir'; del.className='text-xs p-1 border rounded text-red-600'; del.onclick=()=>{ if(confirm('Excluir?')){ local.splice(i,1); localStorage.setItem('photos', JSON.stringify(local)); loadGallery(); } }; btns.appendChild(down); btns.appendChild(del); wrap.appendChild(btns); gallery.appendChild(wrap); });
-    // load cloud photos list (ids only)
-    dbListUserPhotos().then(cloud=>{ cloud.forEach(c=>{ const img=document.createElement('img'); img.src=c.data; img.className='w-full h-32 object-cover rounded-md border'; const wrap=document.createElement('div'); wrap.appendChild(img); gallery.appendChild(wrap); }); });
+  function render(){
+    gallery.innerHTML='';
+    images.forEach((d,i)=>{
+      const div = document.createElement('div');
+      div.className='card p-1';
+      div.innerHTML = `<img src="${d}" style="width:100%;height:120px;object-fit:cover;border-radius:8px" /> <div class="small mt-1 text-center"><button data-i="${i}" class="text-sm text-red-600">Remover</button></div>`;
+      gallery.appendChild(div);
+    });
+    localStorage.setItem('viagem:photos', JSON.stringify(images));
   }
 
-  loadGallery();
+  filesInput.addEventListener('change', async (e)=>{
+    const files = Array.from(e.target.files);
+    for(const f of files){
+      const data = await readFileAsDataURL(f);
+      images.push(data);
+    }
+    render();
+  });
+
+  gallery.addEventListener('click', (ev)=>{
+    const b = ev.target.closest('button');
+    if(!b) return;
+    const i = Number(b.dataset.i);
+    images.splice(i,1); render();
+  });
+
+  document.getElementById('clear-gallery').addEventListener('click', ()=>{ if(confirm('Apagar todas as imagens?')){ images=[]; render(); }});
+
+  function readFileAsDataURL(file){ return new Promise((res,rej)=>{ const fr = new FileReader(); fr.onload = ()=>res(fr.result); fr.onerror = rej; fr.readAsDataURL(file); }); }
+
+  document.getElementById('open-camera').addEventListener('click', async ()=>{
+    // open capture via input capture if available
+    const inp = document.createElement('input'); inp.type='file'; inp.accept='image/*'; inp.capture='environment';
+    inp.onchange = async (e)=>{ const f = e.target.files[0]; const data = await readFileAsDataURL(f); images.push(data); render(); };
+    inp.click();
+  });
+
+  document.getElementById('make-slideshow').addEventListener('click', ()=>{
+    if(images.length===0) return alert('Adicione algumas imagens primeiro');
+    const tmpl = document.getElementById('template').value;
+    const w = window.open('','_blank');
+    const css = `body{margin:0;background:#000;color:#fff;display:flex;align-items:center;justify-content:center;height:100vh;} .slide{position:absolute;opacity:0;transition:opacity 1s ease;}.show{opacity:1}`;
+    let html = `<html><head><title>Slideshow</title><style>${css}</style></head><body>`;
+    images.forEach((src,i)=>{ html += `<img class="slide" id="s${i}" src="${src}" style="max-width:100vw;max-height:100vh;object-fit:contain" />`; });
+    html += `<script>let idx=0;const slides=document.querySelectorAll('.slide'); function show(){ slides.forEach(s=>s.classList.remove('show')); slides[idx].classList.add('show'); idx=(idx+1)%slides.length; } setInterval(show, ${tmpl==='adventure'?1400:tmpl==='cinematic'?2400:3000}); show();</script></body></html>`;
+    w.document.write(html); w.document.close();
+  });
+
+  // init
+  render();
   </script>
 </body>
 </html>

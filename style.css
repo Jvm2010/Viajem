@@ -1,2 +1,44 @@
-/* minimal extra styles if needed */
-body{font-family:Inter, system-ui, Arial, sans-serif}
+
+/* Custom styles for Viagem app */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap');
+:root{
+  --accent: #0ea5e9;
+  --card: #ffffff;
+}
+body{font-family:Inter, system-ui, Arial, sans-serif;background:linear-gradient(180deg,#f8fafc, #ffffff); color:#0f172a;}
+
+/* Map container should be responsive */
+#map{width:100%;height:48vh;min-height:320px;border-radius:12px;box-shadow:0 6px 18px rgba(2,6,23,0.06);}
+
+/* Card */
+.card{background:var(--card);border-radius:12px;padding:12px;box-shadow:0 4px 12px rgba(2,6,23,0.04);}
+
+/* Controls */
+.input-grid{display:grid;grid-template-columns:1fr 120px 96px;gap:8px;}
+@media(max-width:640px){ .input-grid{grid-template-columns:1fr 100px; } .input-grid > *:nth-child(3){grid-column:1/3;} }
+
+.list-item{display:flex;align-items:center;justify-content:space-between;padding:8px;border-radius:8px;border:1px solid rgba(15,23,42,0.04);margin-bottom:8px;}
+.small{font-size:13px;color:#64748b;}
+.badge{background:rgba(14,165,233,0.12);color:var(--accent);padding:6px 8px;border-radius:999px;font-weight:600;font-size:13px}
+
+.footer-summary{display:flex;gap:12px;align-items:center;justify-content:space-between;padding-top:8px;border-top:1px dashed rgba(15,23,42,0.06);margin-top:8px;}
+`
+
+
+/* Modal */
+.modal-backdrop{position:fixed;inset:0;background:rgba(2,6,23,0.45);display:flex;align-items:center;justify-content:center;z-index:50;opacity:0;pointer-events:none;transition:opacity .18s ease;}
+.modal-backdrop.show{opacity:1;pointer-events:auto;}
+.modal{background:var(--card);border-radius:12px;padding:18px;max-width:520px;width:92%;box-shadow:0 12px 40px rgba(2,6,23,0.14);transform:translateY(8px);transition:transform .18s ease;}
+.modal-backdrop.show .modal{transform:translateY(0);}
+
+/* Toast */
+.toast{position:fixed;right:16px;bottom:24px;background:#0f172a;color:#fff;padding:10px 14px;border-radius:999px;box-shadow:0 6px 20px rgba(2,6,23,0.12);opacity:0;transform:translateY(8px);transition:all .18s ease;z-index:60;}
+.toast.show{opacity:1;transform:translateY(0);}
+
+/* Editable hover */
+.list-item .editable{padding:6px;border-radius:8px;display:inline-block;}
+.list-item .editable:focus{outline:2px solid rgba(14,165,233,0.18);background:rgba(14,165,233,0.04);}
+
+/* subtle animations */
+.fade-in{animation:fadeIn .28s ease both;}
+@keyframes fadeIn{ from{opacity:0; transform:translateY(6px)} to{opacity:1; transform:none} }
