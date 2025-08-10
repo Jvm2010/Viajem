@@ -1,19 +1,57 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Meu Roteiro de Viagem</title>
-  <link rel="stylesheet" href="style.css">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Viagem — Roteiros & Memórias</title>
+  <script src="https://cdn.tailwindcss.com"></script>
   <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0f172a">
 </head>
-<body>
-  <h1>🌍 Meu Roteiro de Viagem</h1>
-  <nav>
-    <a href="roteiro.html">📍 Roteiro & Gastos</a>
-    <a href="fotos.html">📸 Fotos Tumblr</a>
-  </nav>
-  <p>Adicione à tela inicial para usar como app!</p>
-  <script src="app.js"></script>
+<body class="bg-gray-50 text-gray-800 antialiased">
+  <header class="bg-gradient-to-r from-indigo-600 to-sky-500 text-white p-6 shadow-md">
+    <div class="max-w-4xl mx-auto flex items-center justify-between">
+      <h1 class="text-2xl font-semibold">Viagem — Roteiros & Memórias</h1>
+      <nav class="space-x-3">
+        <a class="px-3 py-2 rounded-md bg-white bg-opacity-10 hover:bg-opacity-20" href="roteiro.html">Roteiro</a>
+        <a class="px-3 py-2 rounded-md bg-white bg-opacity-10 hover:bg-opacity-20" href="fotos.html">Fotos</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="max-w-4xl mx-auto p-6">
+    <section class="bg-white rounded-2xl shadow-lg p-6 mb-6">
+      <h2 class="text-xl font-medium mb-2">Planeje sua próxima viagem</h2>
+      <p class="text-sm text-gray-600 mb-4">Crie roteiros, controle gastos, capture fotos com estilo e gere uma lembrança bonita da viagem.</p>
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <a href="roteiro.html" class="block p-4 rounded-xl border border-gray-100 hover:shadow-md">
+          <h3 class="font-semibold">📍 Roteiro & Gastos</h3>
+          <p class="text-sm text-gray-500 mt-2">Mapa interativo, rotas e controle financeiro da viagem.</p>
+        </a>
+        <a href="fotos.html" class="block p-4 rounded-xl border border-gray-100 hover:shadow-md">
+          <h3 class="font-semibold">📸 Fotos Tumblr</h3>
+          <p class="text-sm text-gray-500 mt-2">Capture, aplique filtros e baixe ou compartilhe.</p>
+        </a>
+        <a href="#" class="block p-4 rounded-xl border border-gray-100 hover:shadow-md">
+          <h3 class="font-semibold">✨ Exportar</h3>
+          <p class="text-sm text-gray-500 mt-2">Exporte sua timeline como PDF ou vídeo (futuro).</p>
+        </a>
+      </div>
+    </section>
+
+    <section class="text-xs text-gray-500 text-center mt-8">
+      <p>Este projeto é um Progressive Web App — adicione à tela inicial para experiência parecida com app.</p>
+    </section>
+  </main>
+
+  <footer class="text-center text-gray-400 text-sm p-6">
+    Feito com ♥ — teste no celular e ajuste a chave da Google Maps API em <code>roteiro.html</code>.
+  </footer>
+
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js').catch(()=>{});
+    }
+  </script>
 </body>
 </html>

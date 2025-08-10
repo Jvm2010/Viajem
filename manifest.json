@@ -1,10 +1,10 @@
 {
-  "name": "Meu Roteiro de Viagem",
+  "name": "Viagem \u2014 Roteiros & Mem\u00f3rias",
   "short_name": "Viagem",
   "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#333333",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
   "icons": [
     {
       "src": "img/icon-192.png",

@@ -1,21 +1,16 @@
-self.addEventListener("install", e => {
-  e.waitUntil(
-    caches.open("viagem-app").then(cache => {
-      return cache.addAll([
-        "/",
-        "/index.html",
-        "/roteiro.html",
-        "/fotos.html",
-        "/style.css",
-        "/app.js",
-        "/manifest.json"
-      ]);
-    })
-  );
+const CACHE = 'viagem-cache-v1';
+const assets = [
+  '/',
+  '/index.html',
+  '/roteiro.html',
+  '/fotos.html',
+  '/style.css',
+  '/app.js',
+  '/manifest.json'
+];
+self.addEventListener('install', evt => {
+  evt.waitUntil(caches.open(CACHE).then(cache => cache.addAll(assets)));
 });
-
-self.addEventListener("fetch", e => {
-  e.respondWith(
-    caches.match(e.request).then(response => response || fetch(e.request))
-  );
+self.addEventListener('fetch', evt => {
+  evt.respondWith(caches.match(evt.request).then(r => r || fetch(evt.request)));
 });
