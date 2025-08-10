@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Roteiro & Gastos</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://maps.googleapis.com/maps/api/js?key=SUA_CHAVE_AQUI"></script>
+</head>
+<body>
+  <h1>📍 Roteiro de Viagem</h1>
+  <div id="map"></div>
+  
+  <h2>💰 Gastos</h2>
+  <input type="text" id="desc" placeholder="Descrição">
+  <input type="number" id="valor" placeholder="Valor">
+  <button onclick="adicionarGasto()">Adicionar</button>
+  <ul id="lista-gastos"></ul>
+
+  <a href="index.html">⬅ Voltar</a>
+  <script src="app.js"></script>
+</body>
+</html>
