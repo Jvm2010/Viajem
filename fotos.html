@@ -46,7 +46,27 @@
           <button id="open-camera" class="badge">Abrir Câmera</button>
         </div>
 
-        <div class="mt-2 grid grid-cols-3 gap-2" id="gallery"></div>
+        <div class="mt-2 grid grid-cols-3 gap-2" id="gallery">
+        <div class="mt-4 card">
+          <h4 class="font-semibold">Gerador AI de vídeos (integração)</h4>
+          <p class="small">Aqui você pode anexar fotos e usar um serviço de AI para criar vídeos tipo "montagem de casal" automaticamente.
+          Implementações que você pode integrar (recomendado via backend seguro): Runway (image->video), Kapwing/InVideo (slideshow/video editing APIs), Creatomate (API para slideshows) — ver pesquisa na página inicial para escolher.</p>
+          <p class="small"><strong>Observação:</strong> para gerar vídeos reais é necessário registrar-se nos serviços, obter chaves de API e usar um backend (não expor chaves no frontend).</p>
+          <div class="mt-2">
+            <label class="small">Escolha um template</label>
+            <select id="ai-template" class="p-2 card w-full">
+              <option value="romantic">Casal - Romantic montage</option>
+              <option value="friends">Amigos - Roadtrip highlights</option>
+              <option value="tumblr">Tumblr - Aesthetic montage</option>
+            </select>
+            <div class="mt-2 flex gap-2">
+              <button id="generate-ai" class="badge">Gerar vídeo AI (placeholder)</button>
+              <button id="download-slideshow" class="badge">Gerar slideshow local (MP4)</button>
+            </div>
+            <div id="ai-status" class="small mt-2"></div>
+          </div>
+        </div>
+
 
         <div class="mt-4">
           <h4 class="font-semibold">Templates rápidos (para vídeos de casal)</h4>
@@ -292,5 +312,158 @@
   });
 </script>
 
+
+// Client-side slideshow -> records a WebM video using canvas + MediaRecorder.
+// No server required. Works on modern browsers (Chrome/Edge/Firefox with varying support).
+async function recordSlideshow(options){
+  const input = document.getElementById('file-input');
+  if(!input.files.length){ alert('Adicione fotos primeiro'); return; }
+  const files = Array.from(input.files);
+  const durationPerImage = Number(prompt("Segundos por imagem?", "2")) || 2;
+  const width = 1280, height = 720;
+  // create offscreen canvas
+  const canvas = document.createElement('canvas');
+  canvas.width = width; canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  // prepare image elements
+  const imgs = await Promise.all(files.map(f=> new Promise((res)=>{
+    const img = new Image();
+    img.onload = ()=>res(img);
+    img.onerror = ()=>res(null);
+    img.src = URL.createObjectURL(f);
+  })));
+  // capture stream and record
+  const stream = canvas.captureStream(30); // 30fps
+  const recordedChunks = [];
+  const rec = new MediaRecorder(stream, {mimeType:'video/webm;codecs=vp9'});
+  rec.ondataavailable = e=>{ if(e.data && e.data.size) recordedChunks.push(e.data); };
+  rec.start();
+  // draw each image for durationPerImage seconds
+  for(const img of imgs){
+    // fill background
+    ctx.fillStyle = '#000'; ctx.fillRect(0,0,width,height);
+    if(img){
+      // calculate fit
+      const ar = img.width/img.height;
+      let w = width, h = width / ar;
+      if(h > height){ h = height; w = height * ar; }
+      const x = (width - w)/2, y = (height - h)/2;
+      ctx.drawImage(img, x, y, w, h);
+    }
+    // draw caption if needed
+    await new Promise(res=> setTimeout(res, durationPerImage*1000));
+  }
+  // stop recorder
+  rec.stop();
+  await new Promise(res=> rec.onstop = res);
+  const blob = new Blob(recordedChunks, {type:'video/webm'});
+  const url = URL.createObjectURL(blob);
+  // open in new tab and provide download link
+  const wnd = window.open('');
+  wnd.document.write('<html><body style="margin:0;background:#000;color:#fff"><video controls autoplay src="'+url+'" style="width:100%;height:100%"></video><a href="'+url+'" download="slideshow.webm" style="position:fixed;left:10px;top:10px;padding:8px;background:#fff;color:#000;border-radius:6px;text-decoration:none">Download</a></body></html>');
+}
+
+// wire up button
+document.getElementById('download-slideshow').addEventListener('click', ()=>{
+  recordSlideshow();
+});
+
 </body>
 </html>
+
+<script>
+document.getElementById('file-input').addEventListener('change', evt=>{
+  const out = document.getElementById('gallery');
+  out.innerHTML='';
+  const files = Array.from(evt.target.files).slice(0,20);
+  files.forEach(f=>{
+    const url = URL.createObjectURL(f);
+    const img = document.createElement('img');
+    img.src = url; img.className='w-full h-24 object-cover rounded';
+    const wrapper = document.createElement('div'); wrapper.appendChild(img);
+    out.appendChild(wrapper);
+  });
+});
+
+// Placeholder: call backend to use Runway/Creatomate/Kapwing APIs to generate videos
+document.getElementById('generate-ai').addEventListener('click', async ()=>{
+  const status = document.getElementById('ai-status');
+  status.textContent = 'Preparando requisição... (este é um stub - configure backend API)';
+  // Collect photos
+  const input = document.getElementById('file-input');
+  if(!input.files.length){ status.textContent='Adicione fotos primeiro.'; return; }
+  // NOTE: You must implement a backend route /api/generate-video that accepts photos and calls the chosen service.
+  status.innerHTML = 'Exemplo: enviar fotos para seu backend que então chama Runway / Creatomate / Kapwing API. Veja recomendações no relatório.';
+});
+
+// Simple local slideshow generator (browser side) - will create a GIF-like video using Whammy or CCapture in a real app.
+// Here we just create a downloadable HTML page that displays the slideshow.
+document.getElementById('download-slideshow').addEventListener('click', ()=>{
+  const input = document.getElementById('file-input');
+  if(!input.files.length){ alert('Adicione fotos primeiro'); return; }
+  const files = Array.from(input.files).slice(0,30);
+  const wnd = window.open('');
+  wnd.document.write('<html><head><title>Slideshow</title></head><body style="margin:0">');
+  files.forEach(f=>{
+    const url = URL.createObjectURL(f);
+    wnd.document.write('<div style="width:100vw;height:100vh;background:#000;display:flex;align-items:center;justify-content:center"><img src="'+url+'" style="max-width:90%;max-height:90%"></div>');
+  });
+  wnd.document.write('
+// Client-side slideshow -> records a WebM video using canvas + MediaRecorder.
+// No server required. Works on modern browsers (Chrome/Edge/Firefox with varying support).
+async function recordSlideshow(options){
+  const input = document.getElementById('file-input');
+  if(!input.files.length){ alert('Adicione fotos primeiro'); return; }
+  const files = Array.from(input.files);
+  const durationPerImage = Number(prompt("Segundos por imagem?", "2")) || 2;
+  const width = 1280, height = 720;
+  // create offscreen canvas
+  const canvas = document.createElement('canvas');
+  canvas.width = width; canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  // prepare image elements
+  const imgs = await Promise.all(files.map(f=> new Promise((res)=>{
+    const img = new Image();
+    img.onload = ()=>res(img);
+    img.onerror = ()=>res(null);
+    img.src = URL.createObjectURL(f);
+  })));
+  // capture stream and record
+  const stream = canvas.captureStream(30); // 30fps
+  const recordedChunks = [];
+  const rec = new MediaRecorder(stream, {mimeType:'video/webm;codecs=vp9'});
+  rec.ondataavailable = e=>{ if(e.data && e.data.size) recordedChunks.push(e.data); };
+  rec.start();
+  // draw each image for durationPerImage seconds
+  for(const img of imgs){
+    // fill background
+    ctx.fillStyle = '#000'; ctx.fillRect(0,0,width,height);
+    if(img){
+      // calculate fit
+      const ar = img.width/img.height;
+      let w = width, h = width / ar;
+      if(h > height){ h = height; w = height * ar; }
+      const x = (width - w)/2, y = (height - h)/2;
+      ctx.drawImage(img, x, y, w, h);
+    }
+    // draw caption if needed
+    await new Promise(res=> setTimeout(res, durationPerImage*1000));
+  }
+  // stop recorder
+  rec.stop();
+  await new Promise(res=> rec.onstop = res);
+  const blob = new Blob(recordedChunks, {type:'video/webm'});
+  const url = URL.createObjectURL(blob);
+  // open in new tab and provide download link
+  const wnd = window.open('');
+  wnd.document.write('<html><body style="margin:0;background:#000;color:#fff"><video controls autoplay src="'+url+'" style="width:100%;height:100%"></video><a href="'+url+'" download="slideshow.webm" style="position:fixed;left:10px;top:10px;padding:8px;background:#fff;color:#000;border-radius:6px;text-decoration:none">Download</a></body></html>');
+}
+
+// wire up button
+document.getElementById('download-slideshow').addEventListener('click', ()=>{
+  recordSlideshow();
+});
+
+</body></html>');
+});
+</script>
