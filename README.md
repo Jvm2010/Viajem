@@ -1,19 +1,16 @@
-# Viagem — Modernizado
-Projeto atualizado com UI moderna usando Tailwind CDN, PWA básico e melhorias.
+Viagem Planner - Final
 
-## O que foi melhorado
-- Design moderno responsivo com Tailwind (sem build tool)
-- Roteiro com mapa interativo e marcadores persistidos no localStorage
-- Campo de busca com Autocomplete (Google Places)
-- Painel de gastos com export CSV
-- Página de fotos com filtros estilo Tumblr, galeria local e download
-- PWA manifest + service worker para offline básico
+Instruções:
+1. Suba os arquivos para um repositório no GitHub.
+2. Ative GitHub Pages na branch main / root.
+3. Verifique a chave do Google Maps (roteiro.html) e restrinja seu uso no Google Cloud Console.
+4. No Firebase console, confirme que o Realtime Database está habilitado e as regras permitem leitura/escrita para testes.
 
-## Instruções rápidas
-1. Ajuste a chave do Google Maps no arquivo `roteiro.html` (já incluída nesta versão, restrinja depois no Console do Google Cloud).
-2. Faça upload no GitHub como no tutorial anterior.
-3. Ative GitHub Pages (branch main / root).
-4. Acesse no celular e adicione à tela inicial.
+Observações de segurança:
+- Atualmente o app usa um identificador anônimo salvo no localStorage. Para multi-usuario real, integre Firebase Auth.
+- Restrinja a API key do Maps para seu domínio.
 
-## Segurança da API Key
-A chave de API do Maps está no `roteiro.html`. **Recomenda-se** restringir a chave para seu domínio nas configurações do Google Cloud Console para evitar uso indevido.
+Arquivos principais:
+- roteiro.html: página principal com mapa, lista de locais, ordenação, rota e gastos.
+- fotos.html: captura de fotos and upload ao Firebase.
+- firebase.js: helpers para salvar/carregar dados do Realtime Database.

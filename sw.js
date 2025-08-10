@@ -1,4 +1,4 @@
-const CACHE = 'viagem-cache-v1';
+const CACHE = 'viagem-final-cache-v1';
 const assets = [
   '/',
   '/index.html',

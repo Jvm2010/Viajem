@@ -3,55 +3,40 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Viagem — Roteiros & Memórias</title>
+  <title>Viagem — Planner</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#0f172a">
 </head>
 <body class="bg-gray-50 text-gray-800 antialiased">
   <header class="bg-gradient-to-r from-indigo-600 to-sky-500 text-white p-6 shadow-md">
-    <div class="max-w-4xl mx-auto flex items-center justify-between">
-      <h1 class="text-2xl font-semibold">Viagem — Roteiros & Memórias</h1>
+    <div class="max-w-5xl mx-auto flex items-center justify-between">
+      <h1 class="text-2xl font-semibold">Viagem — Planner</h1>
       <nav class="space-x-3">
         <a class="px-3 py-2 rounded-md bg-white bg-opacity-10 hover:bg-opacity-20" href="roteiro.html">Roteiro</a>
         <a class="px-3 py-2 rounded-md bg-white bg-opacity-10 hover:bg-opacity-20" href="fotos.html">Fotos</a>
       </nav>
     </div>
   </header>
-
-  <main class="max-w-4xl mx-auto p-6">
+  <main class="max-w-5xl mx-auto p-6">
     <section class="bg-white rounded-2xl shadow-lg p-6 mb-6">
-      <h2 class="text-xl font-medium mb-2">Planeje sua próxima viagem</h2>
-      <p class="text-sm text-gray-600 mb-4">Crie roteiros, controle gastos, capture fotos com estilo e gere uma lembrança bonita da viagem.</p>
-      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <h2 class="text-xl font-medium mb-2">Planeje sua viagem com rota, custos e fotos</h2>
+      <p class="text-sm text-gray-600 mb-4">Salve locais, organize a ordem via arrastar, calcule rota automática e gerencie custos. Seus dados são salvos no Firebase em tempo real.</p>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <a href="roteiro.html" class="block p-4 rounded-xl border border-gray-100 hover:shadow-md">
           <h3 class="font-semibold">📍 Roteiro & Gastos</h3>
-          <p class="text-sm text-gray-500 mt-2">Mapa interativo, rotas e controle financeiro da viagem.</p>
+          <p class="text-sm text-gray-500 mt-2">Gerencie locais, rotas e despesas.</p>
         </a>
         <a href="fotos.html" class="block p-4 rounded-xl border border-gray-100 hover:shadow-md">
           <h3 class="font-semibold">📸 Fotos Tumblr</h3>
-          <p class="text-sm text-gray-500 mt-2">Capture, aplique filtros e baixe ou compartilhe.</p>
-        </a>
-        <a href="#" class="block p-4 rounded-xl border border-gray-100 hover:shadow-md">
-          <h3 class="font-semibold">✨ Exportar</h3>
-          <p class="text-sm text-gray-500 mt-2">Exporte sua timeline como PDF ou vídeo (futuro).</p>
+          <p class="text-sm text-gray-500 mt-2">Capture fotos, aplique filtros e salve na nuvem opcionalmente.</p>
         </a>
       </div>
     </section>
-
     <section class="text-xs text-gray-500 text-center mt-8">
-      <p>Este projeto é um Progressive Web App — adicione à tela inicial para experiência parecida com app.</p>
+      <p>Adicione à tela inicial para usar offline. Você pode restringir suas chaves no Console Google/Firebase.</p>
     </section>
   </main>
-
-  <footer class="text-center text-gray-400 text-sm p-6">
-    Feito com ♥ — teste no celular e ajuste a chave da Google Maps API em <code>roteiro.html</code>.
-  </footer>
-
-  <script>
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('sw.js').catch(()=>{});
-    }
-  </script>
+  <footer class="text-center text-gray-400 text-sm p-6">Feito com ♥ — teste no celular.</footer>
 </body>
 </html>

@@ -1,3 +1,2 @@
-/* Extra custom styles for small polish */
-:root{--glass: rgba(255,255,255,0.6);} 
-.glass { background: var(--glass); backdrop-filter: blur(6px); }
+/* minimal extra styles if needed */
+body{font-family:Inter, system-ui, Arial, sans-serif}

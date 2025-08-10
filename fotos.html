@@ -6,10 +6,7 @@
   <title>Fotos Tumblr — Viagem</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="manifest" href="manifest.json">
-  <style>
-    /* Small custom polish */
-    .filter-pad { filter: contrast(1.05) saturate(1.1); }
-  </style>
+  <script type="module" src="firebase.js"></script>
 </head>
 <body class="bg-gray-50 text-gray-800">
   <header class="bg-white shadow p-4">
@@ -18,7 +15,6 @@
       <a href="index.html" class="text-sm text-sky-600">← Voltar</a>
     </div>
   </header>
-
   <main class="max-w-4xl mx-auto p-6 grid grid-cols-1 gap-6">
     <section class="bg-white rounded-2xl shadow p-4">
       <div class="flex flex-col sm:flex-row gap-4 items-start">
@@ -26,7 +22,7 @@
           <video id="camera" autoplay playsinline class="w-full rounded-md bg-black"></video>
           <div class="mt-3 flex gap-2">
             <button id="snap" class="px-4 py-2 rounded-md bg-sky-600 text-white">📷 Capturar</button>
-            <button id="save" class="px-4 py-2 rounded-md bg-emerald-600 text-white">💾 Salvar</button>
+            <button id="save" class="px-4 py-2 rounded-md bg-emerald-600 text-white">💾 Salvar (Nuvem)</button>
             <button id="download" class="px-4 py-2 rounded-md border">⬇️ Baixar</button>
           </div>
         </div>
@@ -40,9 +36,8 @@
           </div>
         </div>
       </div>
-      <div class="mt-4 text-xs text-gray-500">Fotos são salvas no armazenamento local do navegador. Você pode baixar ou compartilhar.</div>
+      <div class="mt-4 text-xs text-gray-500">Salve localmente ou na nuvem. Fotos salvas na nuvem são privadas no seu USER_ID.</div>
     </section>
-
     <section class="bg-white rounded-2xl shadow p-4">
       <h3 class="font-medium mb-2">Galeria (local)</h3>
       <div id="gallery" class="grid grid-cols-2 sm:grid-cols-4 gap-3"></div>
@@ -50,95 +45,38 @@
   </main>
 
   <script>
+  import { dbSaveUserPhoto, dbListUserPhotos } from './firebase.js';
   const video = document.getElementById('camera');
   const canvas = document.getElementById('canvas');
   const ctx = canvas.getContext('2d');
   const gallery = document.getElementById('gallery');
 
   async function startCamera(){
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio:false });
-      video.srcObject = stream;
-      await video.play();
-    } catch(e){ console.error('Camera error', e); alert('Erro ao acessar a câmera.'); }
+    try { const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio:false }); video.srcObject = stream; await video.play(); } catch(e){ console.error('Camera error', e); alert('Erro ao acessar a câmera.'); }
   }
   startCamera();
 
-  function resizeCanvasToVideo(){
-    canvas.width = video.videoWidth || 640;
-    canvas.height = video.videoHeight || 480;
-  }
-
-  document.getElementById('snap').onclick = () => {
-    resizeCanvasToVideo();
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    applyFilter(currentFilter);
-  };
+  function resizeCanvasToVideo(){ canvas.width = video.videoWidth || 640; canvas.height = video.videoHeight || 480; }
+  document.getElementById('snap').onclick = () => { resizeCanvasToVideo(); ctx.drawImage(video, 0, 0, canvas.width, canvas.height); applyFilter(currentFilter); };
 
   let currentFilter = 'none';
-  function applyFilter(name){
-    const imgData = ctx.getImageData(0,0,canvas.width,canvas.height);
-    const d = imgData.data;
-    if(name==='vintage'){
-      for(let i=0;i<d.length;i+=4){
-        d[i] = d[i]*0.95 + 20; // R
-        d[i+1] = d[i+1]*0.9 + 10; // G
-        d[i+2] = d[i+2]*0.85; // B
-      }
-    } else if(name==='film'){
-      for(let i=0;i<d.length;i+=4){
-        d[i] = d[i]*1.05; d[i+1]=d[i+1]*1.02; d[i+2]=d[i+2]*0.9;
-      }
-    } else if(name==='bw'){
-      for(let i=0;i<d.length;i+=4){
-        const v = 0.3*d[i]+0.59*d[i+1]+0.11*d[i+2];
-        d[i]=d[i+1]=d[i+2]=v;
-      }
-    }
-    ctx.putImageData(imgData,0,0);
-    // soft overlay for tumblr vibe
-    ctx.globalCompositeOperation = 'overlay';
-    ctx.fillStyle = 'rgba(255,240,230,0.03)';
-    ctx.fillRect(0,0,canvas.width,canvas.height);
-    ctx.globalCompositeOperation = 'source-over';
-  }
+  function applyFilter(name){ const imgData = ctx.getImageData(0,0,canvas.width,canvas.height); const d = imgData.data; if(name==='vintage'){ for(let i=0;i<d.length;i+=4){ d[i]=d[i]*0.95+20; d[i+1]=d[i+1]*0.9+10; d[i+2]=d[i+2]*0.85; } } else if(name==='film'){ for(let i=0;i<d.length;i+=4){ d[i]=d[i]*1.05; d[i+1]=d[i+1]*1.02; d[i+2]=d[i+2]*0.9; } } else if(name==='bw'){ for(let i=0;i<d.length;i+=4){ const v=0.3*d[i]+0.59*d[i+1]+0.11*d[i+2]; d[i]=d[i+1]=d[i+2]=v; } } ctx.putImageData(imgData,0,0); ctx.globalCompositeOperation='overlay'; ctx.fillStyle='rgba(255,240,230,0.03)'; ctx.fillRect(0,0,canvas.width,canvas.height); ctx.globalCompositeOperation='source-over'; }
 
-  document.querySelectorAll('[data-filter]').forEach(b=>{
-    b.onclick = ()=>{ currentFilter = b.dataset.filter; if(canvas.width) applyFilter(currentFilter); };
-  });
+  document.querySelectorAll('[data-filter]').forEach(b=>b.onclick=()=>{ currentFilter=b.dataset.filter; if(canvas.width) applyFilter(currentFilter); });
 
-  document.getElementById('save').onclick = ()=>{
+  document.getElementById('save').onclick = async () => {
     if(!canvas.width) return alert('Capture uma foto primeiro.');
     const data = canvas.toDataURL('image/jpeg', 0.92);
-    const list = JSON.parse(localStorage.getItem('photos')||'[]');
-    list.unshift({data, date:new Date().toISOString()});
-    localStorage.setItem('photos', JSON.stringify(list));
+    // save to cloud
+    const id = await dbSaveUserPhoto(data);
+    alert('Foto salva na nuvem (id: '+id+')');
     loadGallery();
-    alert('Salvo no armazenamento local.');
-  };
+  }
+  document.getElementById('download').onclick = () => { if(!canvas.width) return alert('Capture uma foto primeiro.'); const url=canvas.toDataURL('image/jpeg',0.92); const a=document.createElement('a'); a.href=url; a.download='foto.jpg'; a.click(); };
 
-  document.getElementById('download').onclick = ()=>{
-    if(!canvas.width) return alert('Capture uma foto primeiro.');
-    const url = canvas.toDataURL('image/jpeg', 0.92);
-    const a = document.createElement('a'); a.href = url; a.download = 'foto.jpg'; a.click();
-  };
-
-  function loadGallery(){
-    gallery.innerHTML = '';
-    const list = JSON.parse(localStorage.getItem('photos')||'[]');
-    list.forEach((p, i)=>{
-      const img = document.createElement('img');
-      img.src = p.data; img.className='w-full h-32 object-cover rounded-md';
-      const wrap = document.createElement('div');
-      wrap.appendChild(img);
-      const btns = document.createElement('div');
-      btns.className = 'flex gap-2 mt-1';
-      const down = document.createElement('button'); down.textContent='Baixar'; down.className='text-xs p-1 border rounded'; down.onclick=()=>{ const a=document.createElement('a'); a.href=p.data; a.download='foto.jpg'; a.click(); };
-      const del = document.createElement('button'); del.textContent='Excluir'; del.className='text-xs p-1 border rounded text-red-600'; del.onclick=()=>{ if(confirm('Excluir?')){ list.splice(i,1); localStorage.setItem('photos', JSON.stringify(list)); loadGallery(); } };
-      btns.appendChild(down); btns.appendChild(del);
-      wrap.appendChild(btns);
-      gallery.appendChild(wrap);
-    });
+  function loadGallery(){ gallery.innerHTML=''; const local = JSON.parse(localStorage.getItem('photos')||'[]'); local.forEach((p,i)=>{ const img=document.createElement('img'); img.src=p.data; img.className='w-full h-32 object-cover rounded-md'; const wrap=document.createElement('div'); wrap.appendChild(img); const btns=document.createElement('div'); btns.className='flex gap-2 mt-1'; const down=document.createElement('button'); down.textContent='Baixar'; down.className='text-xs p-1 border rounded'; down.onclick=()=>{ const a=document.createElement('a'); a.href=p.data; a.download='foto.jpg'; a.click(); }; const del=document.createElement('button'); del.textContent='Excluir'; del.className='text-xs p-1 border rounded text-red-600'; del.onclick=()=>{ if(confirm('Excluir?')){ local.splice(i,1); localStorage.setItem('photos', JSON.stringify(local)); loadGallery(); } }; btns.appendChild(down); btns.appendChild(del); wrap.appendChild(btns); gallery.appendChild(wrap); });
+    // load cloud photos list (ids only)
+    dbListUserPhotos().then(cloud=>{ cloud.forEach(c=>{ const img=document.createElement('img'); img.src=c.data; img.className='w-full h-32 object-cover rounded-md border'; const wrap=document.createElement('div'); wrap.appendChild(img); gallery.appendChild(wrap); }); });
   }
 
   loadGallery();
