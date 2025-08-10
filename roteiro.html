@@ -9,8 +9,24 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script type="module" src="app_mod.js" defer></script>
   <link rel="stylesheet" href="style.css" />
+  <script type="module" src="firebase.js"></script>
 </head>
 <body class="bg-gray-50 text-gray-800">
+  <script>
+    // /* auth-check */
+    (function(){
+      try{
+        const auth = sessionStorage.getItem('viagem:auth');
+        if(auth !== '1' && auth !== '0'){
+          window.location.href = 'index.html';
+        }
+        // if auth === '0' it's guest: allow but can restrict later
+      }catch(e){
+        console.error(e);
+      }
+    })();
+  </script>
+
   <header class="bg-white shadow p-4 sticky top-0 z-10">
     <div class="max-w-4xl mx-auto flex items-center justify-between">
       <h1 class="text-lg font-semibold">Roteiro — Viagem</h1>
@@ -102,33 +118,64 @@
   
   <script type="module">
   import * as core from './app_mod.js';
+  import app, { db, storage } from './firebase.js';
+  import { ref, push, set, onValue, remove, update, get } from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-database.js';
+  import { ref as sRef, uploadString, uploadBytes, getDownloadURL } from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-storage.js';
 
   const state = core.loadState();
+  // We'll keep local state but sync with Firebase
+  state.points = []; state.generalExpenses = [];
+
   const map = L.map('map').setView([-23.5489, -46.6388], 12);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);
 
   let markers = [];
-  const toastEl = createToast();
-  const modalEl = document.getElementById('modal-backdrop');
-  const modalTitle = document.getElementById('modal-title');
-  const modalBody = document.getElementById('modal-body');
-  const modalConfirm = document.getElementById('modal-confirm');
-  const modalCancel = document.getElementById('modal-cancel');
 
-  function showToast(msg, timeout=2000){ toastEl.textContent = msg; toastEl.classList.add('show'); setTimeout(()=>toastEl.classList.remove('show'), timeout); }
-  function createToast(){ const t = document.createElement('div'); t.className='toast'; document.body.appendChild(t); return t; }
-  function showModal(title, bodyHtml, onConfirm){ modalTitle.textContent=title; modalBody.innerHTML = bodyHtml; modalEl.classList.add('show'); function cleanup(){ modalEl.classList.remove('show'); modalConfirm.onclick = null; modalCancel.onclick = null; } modalConfirm.onclick = ()=>{ try{ onConfirm(); } finally{ cleanup(); } }; modalCancel.onclick = cleanup; }
+  // Listen to locais
+  const locaisRef = ref(db, 'locais');
+  onValue(locaisRef, (snap) => {
+    state.points = [];
+    const val = snap.val() || {};
+    Object.keys(val).forEach(k => {
+      const item = val[k];
+      item.id = k;
+      // ensure numeric types
+      item.value = Number(item.value) || 0;
+      state.points.push(item);
+    });
+    // sort by created if present
+    state.points.sort((a,b)=> (a.created||0) - (b.created||0));
+    renderLists();
+  });
+
+  // Listen to gastos
+  const gastosRef = ref(db, 'gastos');
+  onValue(gastosRef, (snap) => {
+    state.generalExpenses = [];
+    const val = snap.val() || {};
+    Object.keys(val).forEach(k => {
+      const item = val[k];
+      item.id = k;
+      item.amount = Number(item.amount) || 0;
+      state.generalExpenses.push(item);
+    });
+    state.generalExpenses.sort((a,b)=> (a.created||0)-(b.created||0));
+    renderLists();
+  });
 
   function renderLists(){
     const places = document.getElementById('places-list');
     places.innerHTML='';
     state.points.forEach((p, idx)=>{
-      const div = document.createElement('div'); div.className='list-item fade-in';
+      const div = document.createElement('div'); div.className='list-item';
       const left = document.createElement('div');
-      // make name and value editable inline
-      left.innerHTML = `<div contenteditable="true" class="editable" data-idx="${idx}" data-field="name" title="Clique para editar">${escapeHtml(p.name)}</div><div class="small">${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}</div>`;
+      let photoHtml = '';
+      if(p.fotos && p.fotos.length) {
+        photoHtml = `<img src="${p.fotos[0]}" style="width:60px;height:48px;object-fit:cover;border-radius:6px;margin-right:8px" />`;
+      }
+      left.innerHTML = `<div style="display:flex;align-items:center">${photoHtml}<div><div class="font-semibold">${p.name}</div><div class="small">${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}</div></div></div>`;
       const right = document.createElement('div' );
-      right.innerHTML = `<div class="text-right"><div contenteditable="true" class="editable" data-idx="${idx}" data-field="value">${p.value?p.value:''}</div><div class="mt-2"><button class="text-sm text-sky-600 btn-focus" data-idx="${idx}" data-action="zoom">Ir</button> <button class="text-sm text-red-600" data-idx="${idx}" data-action="del">Remover</button></div></div>`;
+      right.innerHTML = `<div class="text-right"><div class="small">${p.value?core.formatCurrency(p.value):''}</div><div class="mt-2"><button class="text-sm text-sky-600 btn-focus" data-id="${p.id}" data-action="zoom">Ir</button> <button class="text-sm text-red-600" data-id="${p.id}" data-action="del">Remover</button></div></div>`;
       div.appendChild(left); div.appendChild(right);
       places.appendChild(div);
     });
@@ -136,129 +183,132 @@
     const gen = document.getElementById('general-list');
     gen.innerHTML='';
     state.generalExpenses.forEach((g, i)=>{
-      const d = document.createElement('div'); d.className='list-item fade-in';
-      d.innerHTML = `<div><div class="font-semibold editable" contenteditable="true" data-gi="${i}" data-field="title">${escapeHtml(g.title)}</div><div class="small">${new Date(g.created).toLocaleString()}</div></div><div class="text-right">${core.formatCurrency(g.amount)} <div class="mt-2"><button class="text-sm text-red-600" data-gi="${i}" data-action="delgen">Remover</button></div></div>`;
+      const d = document.createElement('div'); d.className='list-item';
+      d.innerHTML = `<div><div class="font-semibold">${g.title}</div><div class="small">${new Date(g.created).toLocaleString()}</div></div><div class="text-right">${core.formatCurrency(g.amount)} <div class="mt-2"><button class="text-sm text-red-600" data-gi="${g.id}">Remover</button></div></div>`;
       gen.appendChild(d);
     });
 
     // markers
     markers.forEach(m=>map.removeLayer(m)); markers = [];
     state.points.forEach((p, idx)=>{
-      const m = L.marker([p.lat,p.lng]).addTo(map).bindPopup(`<strong>${escapeHtml(p.name)}</strong><br>${p.value?core.formatCurrency(p.value):''}`);
-      m.on('click', ()=>{ showToast(p.name, 1000); });
+      const m = L.marker([p.lat,p.lng]).addTo(map).bindPopup(`<strong>${p.name}</strong><br>${p.value?core.formatCurrency(p.value):''}`);
+      m.on('click', ()=>{
+        // highlight in list (scroll)
+        const el = document.querySelector('[data-id=\"'+p.id+'\"]');
+        if(el) el.scrollIntoView({behavior:'smooth',block:'center'});
+      });
       markers.push(m);
     });
 
-    attachEditableHandlers();
     updateTotals();
   }
 
-  function attachEditableHandlers(){
-    document.querySelectorAll('[contenteditable="true"]').forEach(el=>{
-      el.addEventListener('blur', (e)=>{
-        const idx = el.dataset.idx;
-        const field = el.dataset.field;
-        const gi = el.dataset.gi;
-        if(typeof idx !== 'undefined' && field){
-          // place edit
-          const i = Number(idx); const val = el.textContent.trim();
-          if(field === 'name'){ state.points[i].name = val||'Ponto'; showToast('Nome salvo'); }
-          if(field === 'value'){ state.points[i].value = Number(val)||0; showToast('Valor salvo'); }
-          renderLists();
-        } else if(typeof gi !== 'undefined' && el.dataset.field === 'title'){
-          const g = Number(gi); state.generalExpenses[g].title = el.textContent.trim()||'Gasto'; showToast('Título salvo'); renderLists();
-        }
-      });
-      // allow Enter to blur (prevent newlines)
-      el.addEventListener('keydown', (e)=>{ if(e.key === 'Enter'){ e.preventDefault(); el.blur(); } });
-    });
-  }
-
-  function escapeHtml(s){ return String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;'); }
-
   function updateTotals(){
+    // distance between ordered points
     let totalKm = 0;
     for(let i=1;i<state.points.length;i++){
       totalKm += core.haversine(state.points[i-1], state.points[i]);
     }
     document.getElementById('total-distance').textContent = totalKm.toFixed(2) + ' km';
+    // total cost
     let totalCost = state.points.reduce((s,p)=>s + (Number(p.value)||0), 0) + state.generalExpenses.reduce((s,g)=>s + (Number(g.amount)||0),0);
     document.getElementById('total-cost').textContent = core.formatCurrency(totalCost);
-    core.saveState(state);
+    core.saveState(state); // keep local cache
   }
 
   map.on('click', function(e){
     const lat = e.latlng.lat, lng = e.latlng.lng;
     document.getElementById('place-name').value = '';
     document.getElementById('place-value').value = '';
+    // store temp coords
     map._temp = {lat,lng};
-    showToast('Local selecionado. Preencha nome e toque Adicionar.');
+    alert('Local selecionado no mapa. Insira nome e pressione \"Adicionar\".');
   });
 
-  document.getElementById('add-current').addEventListener('click', ()=>{
+  async function saveLocalToFirebase(obj){
+    const newRef = push(ref(db,'locais'));
+    obj.created = Date.now();
+    await set(newRef, obj);
+    obj.id = newRef.key;
+    return obj;
+  }
+
+  document.getElementById('add-current').addEventListener('click', async ()=>{
     const name = document.getElementById('place-name').value.trim() || 'Ponto';
     const val = document.getElementById('place-value').value;
     const coords = map._temp || {lat: map.getCenter().lat, lng: map.getCenter().lng};
-    state.points.push({name, lat: coords.lat, lng: coords.lng, value: val?Number(val):0});
-    renderLists();
-    showToast('Local adicionado!');
+    const obj = { name, lat: coords.lat, lng: coords.lng, value: val?Number(val):0, fotos: [] };
+    try{
+      const saved = await saveLocalToFirebase(obj);
+      // local state will be updated via onValue listener
+      alert('Local salvo no Firebase.');
+    }catch(e){
+      console.error(e); alert('Erro ao salvar no Firebase.'); 
+    }
   });
 
-  document.getElementById('places-list').addEventListener('click', (ev)=>{
+  document.getElementById('places-list').addEventListener('click', async (ev)=>{
     const a = ev.target.closest('button');
     if(!a) return;
-    if(a.dataset.action === 'zoom'){
-      const i = Number(a.dataset.idx); map.setView([state.points[i].lat,state.points[i].lng],15);
-      // open popup to highlight
-      markers[i].openPopup();
-    } else if(a.dataset.action === 'del'){
-      const i = Number(a.dataset.idx);
-      showModal('Remover local', `<p>Remover <strong>${escapeHtml(state.points[i].name)}</strong>?</p>`, ()=>{ state.points.splice(i,1); renderLists(); showToast('Removido'); });
+    const action = a.dataset.action;
+    const id = a.dataset.id;
+    if(action === 'zoom'){
+      const item = state.points.find(x=>x.id===id);
+      if(item) map.setView([item.lat,item.lng],15);
+    } else if(action === 'del'){
+      if(!confirm('Remover este local?')) return;
+      try{
+        await remove(ref(db,'locais/'+id));
+      }catch(e){ console.error(e); alert('Erro ao remover.'); }
     }
   });
 
-  document.getElementById('general-list').addEventListener('click', (ev)=>{
-    const b = ev.target.closest('button');
-    if(!b) return;
-    if(b.dataset.action === 'delgen'){
-      const i = Number(b.dataset.gi);
-      showModal('Remover gasto', `<p>Remover <strong>${escapeHtml(state.generalExpenses[i].title)}</strong>?</p>`, ()=>{ state.generalExpenses.splice(i,1); renderLists(); showToast('Gasto removido'); });
-    }
-  });
-
-  document.getElementById('add-general').addEventListener('click', ()=>{
-    showModal('Adicionar gasto geral', `<div><label class="small">Título</label><input id="gen-title" class="p-2 card w-full" value="Gasto" /></div><div class="mt-2"><label class="small">Valor (R$)</label><input id="gen-amt" type="number" min="0" class="p-2 card w-full" value="0" /></div>`, ()=>{ const title = document.getElementById('gen-title').value||'Gasto'; const amt = Number(document.getElementById('gen-amt').value)||0; state.generalExpenses.push({title, amount: amt, created: Date.now()}); renderLists(); showToast('Gasto geral adicionado'); });
+  document.getElementById('add-general').addEventListener('click', async ()=>{
+    const title = prompt('Título do gasto geral:');
+    if(!title) return;
+    const amt = prompt('Valor (R$):','0');
+    const obj = { title, amount: Number(amt)||0, created: Date.now(), fotos: [] };
+    try{
+      const newRef = push(ref(db,'gastos'));
+      await set(newRef, obj);
+      alert('Gasto salvo.');
+    }catch(e){ console.error(e); alert('Erro ao salvar gasto.'); }
   });
 
   document.getElementById('export-json').addEventListener('click', ()=>{
     const a = document.createElement('a');
-    const blob = new Blob([JSON.stringify(state, null, 2)],{type:'application/json'});
+    const blob = new Blob([JSON.stringify({points:state.points,gastos:state.generalExpenses}, null, 2)],{type:'application/json'});
     a.href = URL.createObjectURL(blob);
     a.download = 'roteiro.json';
     a.click();
   });
 
-  document.getElementById('clear-all').addEventListener('click', ()=>{
-    showModal('Limpar roteiro', `<p>Deseja limpar todos os locais e gastos?</p>`, ()=>{ state.points=[]; state.generalExpenses=[]; renderLists(); showToast('Roteiro limpo'); });
+  document.getElementById('clear-all').addEventListener('click', async ()=>{
+    if(!confirm('Confirma limpar todo o roteiro e gastos no Firebase? Isso apagará TODOS os dados.')) return;
+    try{
+      await set(ref(db,'locais'), null);
+      await set(ref(db,'gastos'), null);
+    }catch(e){ console.error(e); alert('Erro ao limpar.'); }
   });
 
   document.getElementById('btn-search').addEventListener('click', async ()=>{
     const q = document.getElementById('search').value.trim();
-    if(!q) return showToast('Digite algo para buscar');
+    if(!q) return alert('Digite algo para buscar');
+    // use nominatim openstreetmap
     const res = await fetch('https://nominatim.openstreetmap.org/search?format=json&q='+encodeURIComponent(q));
     const data = await res.json();
-    if(!data || !data.length) return showToast('Nenhum resultado');
+    if(!data || !data.length) return alert('Nenhum resultado');
     const top = data[0];
     const lat = parseFloat(top.lat), lon = parseFloat(top.lon);
     map.setView([lat,lon],15);
     map._temp = {lat, lng: lon};
     document.getElementById('place-name').value = top.display_name;
-    showToast('Resultado selecionado. Preencha nome e adicione.');
   });
 
-  // initial render
+  // init render (will be populated by onValue listeners)
   renderLists();
   </script>
+
 
 </body>
 </html>
