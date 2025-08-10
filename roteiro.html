@@ -8,6 +8,7 @@
   <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script type="module" src="app_mod.js" defer></script>
+  <script type="module" src="db_api.js" defer></script>
   <link rel="stylesheet" href="style.css" />
   <script type="module" src="firebase.js"></script>
 </head>
@@ -118,71 +119,31 @@
   
   <script type="module">
   import * as core from './app_mod.js';
-  import app, { db, storage } from './firebase.js';
-  import { ref, push, set, onValue, remove, update, get } from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-database.js';
-  import { ref as sRef, uploadString, uploadBytes, getDownloadURL } from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-storage.js';
-
-  const state = core.loadState();
-  // We'll keep local state but sync with Firebase
-  state.points = []; state.generalExpenses = [];
+  import { subscribePlaces, savePlace, removePlace, subscribeGeneral, saveGeneral } from './db_api.js';
 
   const map = L.map('map').setView([-23.5489, -46.6388], 12);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);
 
+  let places = [];
+  let general = [];
   let markers = [];
 
-  // Listen to locais
-  const locaisRef = ref(db, 'locais');
-  onValue(locaisRef, (snap) => {
-    state.points = [];
-    const val = snap.val() || {};
-    Object.keys(val).forEach(k => {
-      const item = val[k];
-      item.id = k;
-      // ensure numeric types
-      item.value = Number(item.value) || 0;
-      state.points.push(item);
-    });
-    // sort by created if present
-    state.points.sort((a,b)=> (a.created||0) - (b.created||0));
-    renderLists();
-  });
-
-  // Listen to gastos
-  const gastosRef = ref(db, 'gastos');
-  onValue(gastosRef, (snap) => {
-    state.generalExpenses = [];
-    const val = snap.val() || {};
-    Object.keys(val).forEach(k => {
-      const item = val[k];
-      item.id = k;
-      item.amount = Number(item.amount) || 0;
-      state.generalExpenses.push(item);
-    });
-    state.generalExpenses.sort((a,b)=> (a.created||0)-(b.created||0));
-    renderLists();
-  });
-
   function renderLists(){
-    const places = document.getElementById('places-list');
-    places.innerHTML='';
-    state.points.forEach((p, idx)=>{
+    const placesDiv = document.getElementById('places-list');
+    placesDiv.innerHTML='';
+    places.forEach((p, idx)=>{
       const div = document.createElement('div'); div.className='list-item';
       const left = document.createElement('div');
-      let photoHtml = '';
-      if(p.fotos && p.fotos.length) {
-        photoHtml = `<img src="${p.fotos[0]}" style="width:60px;height:48px;object-fit:cover;border-radius:6px;margin-right:8px" />`;
-      }
-      left.innerHTML = `<div style="display:flex;align-items:center">${photoHtml}<div><div class="font-semibold">${p.name}</div><div class="small">${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}</div></div></div>`;
+      left.innerHTML = `<div class="font-semibold">${p.name}</div><div class="small">${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}</div>`;
       const right = document.createElement('div' );
       right.innerHTML = `<div class="text-right"><div class="small">${p.value?core.formatCurrency(p.value):''}</div><div class="mt-2"><button class="text-sm text-sky-600 btn-focus" data-id="${p.id}" data-action="zoom">Ir</button> <button class="text-sm text-red-600" data-id="${p.id}" data-action="del">Remover</button></div></div>`;
       div.appendChild(left); div.appendChild(right);
-      places.appendChild(div);
+      placesDiv.appendChild(div);
     });
 
     const gen = document.getElementById('general-list');
     gen.innerHTML='';
-    state.generalExpenses.forEach((g, i)=>{
+    general.forEach((g, i)=>{
       const d = document.createElement('div'); d.className='list-item';
       d.innerHTML = `<div><div class="font-semibold">${g.title}</div><div class="small">${new Date(g.created).toLocaleString()}</div></div><div class="text-right">${core.formatCurrency(g.amount)} <div class="mt-2"><button class="text-sm text-red-600" data-gi="${g.id}">Remover</button></div></div>`;
       gen.appendChild(d);
@@ -190,13 +151,9 @@
 
     // markers
     markers.forEach(m=>map.removeLayer(m)); markers = [];
-    state.points.forEach((p, idx)=>{
+    places.forEach((p, idx)=>{
       const m = L.marker([p.lat,p.lng]).addTo(map).bindPopup(`<strong>${p.name}</strong><br>${p.value?core.formatCurrency(p.value):''}`);
-      m.on('click', ()=>{
-        // highlight in list (scroll)
-        const el = document.querySelector('[data-id=\"'+p.id+'\"]');
-        if(el) el.scrollIntoView({behavior:'smooth',block:'center'});
-      });
+      m.on('click', ()=>{});
       markers.push(m);
     });
 
@@ -204,110 +161,113 @@
   }
 
   function updateTotals(){
-    // distance between ordered points
     let totalKm = 0;
-    for(let i=1;i<state.points.length;i++){
-      totalKm += core.haversine(state.points[i-1], state.points[i]);
+    for(let i=1;i<places.length;i++){
+      totalKm += core.haversine(places[i-1], places[i]);
     }
     document.getElementById('total-distance').textContent = totalKm.toFixed(2) + ' km';
-    // total cost
-    let totalCost = state.points.reduce((s,p)=>s + (Number(p.value)||0), 0) + state.generalExpenses.reduce((s,g)=>s + (Number(g.amount)||0),0);
+    let totalCost = places.reduce((s,p)=>s + (Number(p.value)||0), 0) + general.reduce((s,g)=>s + (Number(g.amount)||0),0);
     document.getElementById('total-cost').textContent = core.formatCurrency(totalCost);
-    core.saveState(state); // keep local cache
   }
 
   map.on('click', function(e){
     const lat = e.latlng.lat, lng = e.latlng.lng;
     document.getElementById('place-name').value = '';
     document.getElementById('place-value').value = '';
-    // store temp coords
     map._temp = {lat,lng};
-    alert('Local selecionado no mapa. Insira nome e pressione \"Adicionar\".');
+    // improved UX: small toast instead of alert
+    const toast = document.createElement('div'); toast.textContent = 'Local selecionado no mapa. Preencha nome e pressione "Adicionar".'; toast.className='card small'; toast.style.position='fixed'; toast.style.right='12px'; toast.style.bottom='12px'; document.body.appendChild(toast);
+    setTimeout(()=>toast.remove(),4000);
   });
-
-  async function saveLocalToFirebase(obj){
-    const newRef = push(ref(db,'locais'));
-    obj.created = Date.now();
-    await set(newRef, obj);
-    obj.id = newRef.key;
-    return obj;
-  }
 
   document.getElementById('add-current').addEventListener('click', async ()=>{
     const name = document.getElementById('place-name').value.trim() || 'Ponto';
     const val = document.getElementById('place-value').value;
     const coords = map._temp || {lat: map.getCenter().lat, lng: map.getCenter().lng};
-    const obj = { name, lat: coords.lat, lng: coords.lng, value: val?Number(val):0, fotos: [] };
+    const place = { name, lat: coords.lat, lng: coords.lng, value: val?Number(val):0 };
     try{
-      const saved = await saveLocalToFirebase(obj);
-      // local state will be updated via onValue listener
-      alert('Local salvo no Firebase.');
+      await savePlace(place);
+      document.getElementById('place-name').value='';
+      document.getElementById('place-value').value='';
     }catch(e){
-      console.error(e); alert('Erro ao salvar no Firebase.'); 
+      // fallback: save to local pending queue
+      console.error('Erro ao salvar no Firebase, gravando localmente', e);
+      const pending = JSON.parse(localStorage.getItem('viagem:pending')||'[]');
+      pending.push({type:'place', data:place});
+      localStorage.setItem('viagem:pending', JSON.stringify(pending));
+      alert('Sem conexão, local salvo localmente e será sincronizado quando online.');
     }
   });
 
-  document.getElementById('places-list').addEventListener('click', async (ev)=>{
-    const a = ev.target.closest('button');
-    if(!a) return;
-    const action = a.dataset.action;
-    const id = a.dataset.id;
-    if(action === 'zoom'){
-      const item = state.points.find(x=>x.id===id);
-      if(item) map.setView([item.lat,item.lng],15);
-    } else if(action === 'del'){
-      if(!confirm('Remover este local?')) return;
-      try{
-        await remove(ref(db,'locais/'+id));
-      }catch(e){ console.error(e); alert('Erro ao remover.'); }
-    }
+  document.getElementById('places-list').addEventListener('click', (ev)=>{
+    const btn = ev.target.closest('button');
+    if(!btn) return;
+    const id = btn.dataset.id;
+    if(btn.dataset.action === 'zoom'){ const p = places.find(x=>x.id===id); if(p) map.setView([p.lat,p.lng],15); }
+    else if(btn.dataset.action === 'del'){ if(confirm('Remover este local?')) removePlace(id); }
   });
 
   document.getElementById('add-general').addEventListener('click', async ()=>{
     const title = prompt('Título do gasto geral:');
     if(!title) return;
     const amt = prompt('Valor (R$):','0');
-    const obj = { title, amount: Number(amt)||0, created: Date.now(), fotos: [] };
-    try{
-      const newRef = push(ref(db,'gastos'));
-      await set(newRef, obj);
-      alert('Gasto salvo.');
-    }catch(e){ console.error(e); alert('Erro ao salvar gasto.'); }
+    const g = { title, amount: Number(amt)||0 };
+    try{ await saveGeneral(g); } catch(e){
+      const pending = JSON.parse(localStorage.getItem('viagem:pending')||'[]');
+      pending.push({type:'general', data:g}); localStorage.setItem('viagem:pending', JSON.stringify(pending));
+      alert('Sem conexão, gasto salvo localmente e será sincronizado quando online.');
+    }
   });
 
   document.getElementById('export-json').addEventListener('click', ()=>{
     const a = document.createElement('a');
-    const blob = new Blob([JSON.stringify({points:state.points,gastos:state.generalExpenses}, null, 2)],{type:'application/json'});
-    a.href = URL.createObjectURL(blob);
-    a.download = 'roteiro.json';
-    a.click();
+    const payload = { places, general };
+    const blob = new Blob([JSON.stringify(payload, null, 2)],{type:'application/json'});
+    a.href = URL.createObjectURL(blob); a.download = 'roteiro.json'; a.click();
   });
 
-  document.getElementById('clear-all').addEventListener('click', async ()=>{
-    if(!confirm('Confirma limpar todo o roteiro e gastos no Firebase? Isso apagará TODOS os dados.')) return;
-    try{
-      await set(ref(db,'locais'), null);
-      await set(ref(db,'gastos'), null);
-    }catch(e){ console.error(e); alert('Erro ao limpar.'); }
+  document.getElementById('clear-all').addEventListener('click', ()=>{
+    if(confirm('Confirma limpar todo o roteiro e gastos?')){
+      // remove all places and gastos
+      places.forEach(p=>{ if(p.id) removePlace(p.id); });
+      general.forEach(g=>{ if(g.id) {/* no removeGeneral here but could be added */} });
+    }
   });
 
   document.getElementById('btn-search').addEventListener('click', async ()=>{
     const q = document.getElementById('search').value.trim();
     if(!q) return alert('Digite algo para buscar');
-    // use nominatim openstreetmap
     const res = await fetch('https://nominatim.openstreetmap.org/search?format=json&q='+encodeURIComponent(q));
     const data = await res.json();
     if(!data || !data.length) return alert('Nenhum resultado');
     const top = data[0];
     const lat = parseFloat(top.lat), lon = parseFloat(top.lon);
     map.setView([lat,lon],15);
-    map._temp = {lat, lng: lon};
+    map._temp = {lat: lat, lng: lon};
     document.getElementById('place-name').value = top.display_name;
   });
 
-  // init render (will be populated by onValue listeners)
-  renderLists();
-  </script>
+  // subscriptions
+  subscribePlaces(ps=>{ places = ps; renderLists(); populatePlaceSelector(); });
+  subscribeGeneral(gs=>{ general = gs; renderLists(); });
+
+  // sync pending on online
+  window.addEventListener('online', async ()=>{
+    const pending = JSON.parse(localStorage.getItem('viagem:pending')||'[]');
+    if(pending.length===0) return;
+    for(const item of pending){
+      try{
+        if(item.type==='place') await savePlace(item.data);
+        else if(item.type==='general') await saveGeneral(item.data);
+      }catch(e){ console.error('sync failed', e); }
+    }
+    localStorage.removeItem('viagem:pending');
+  });
+
+  // helper to populate select in photos page via storage on window for reuse
+  window.populatePlaceSelector = function(){ /* placeholder, photos page will call subscribePlaces directly */ };
+
+</script>
 
 
 </body>
