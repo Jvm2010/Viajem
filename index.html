@@ -3,24 +3,32 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Login — Viagem</title>
+  <title>Login — Viagem Planner Pro</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="style.css" />
 </head>
 <body class="bg-gray-50 text-gray-800 flex items-center justify-center min-h-screen">
   <div class="max-w-md w-full p-6 card">
-    <h1 class="text-2xl font-bold mb-4">Entrar — Viagem</h1>
-    <p class="small mb-4">Use as credenciais fornecidas.</p>
-    <label class="small">Usuário</label>
-    <input id="user" class="p-2 card w-full mb-2" placeholder="Usuário" value="" />
-    <label class="small">Senha</label>
-    <input id="pass" type="password" class="p-2 card w-full mb-4" placeholder="Senha" />
-    <div class="flex gap-2">
-      <button id="btn-login" class="badge">Entrar</button>
-      <button id="btn-guest" class="text-sm text-sky-600">Entrar como visitante</button>
+    <h1 class="text-2xl font-bold mb-4">Entrar — Viagem Planner Pro</h1>
+    <p class="small mb-4">Sistema completo para planejamento de viagens e criação de memórias.</p>
+    
+    <div class="space-y-4">
+      <div>
+        <label class="small">Usuário</label>
+        <input id="user" class="p-2 card w-full mb-2" placeholder="Usuário" value="" />
+      </div>
+      
+      <div>
+        <label class="small">Senha</label>
+        <input id="pass" type="password" class="p-2 card w-full mb-4" placeholder="Senha" />
+      </div>
+      
+      <div class="flex gap-2">
+        <button id="btn-login" class="badge">Entrar</button>
+        <button id="btn-guest" class="text-sm text-sky-600">Modo Demonstração</button>
+      </div>
     </div>
-    <p class="small mt-4 text-gray-500">login: <strong>joao123</strong> / senha: <strong>joao123</strong></p>
   </div>
 
   <script>
@@ -32,13 +40,19 @@
         sessionStorage.setItem('viagem:auth','1');
         window.location.href = 'roteiro.html';
       } else {
-        alert('Usuário ou senha incorretos.');
+        alert('Credenciais incorretas. Use joao123/joao123');
       }
     });
+    
     document.getElementById('btn-guest').addEventListener('click', ()=>{
-      // allow guest but flag as not-auth
       sessionStorage.setItem('viagem:auth','0');
       window.location.href = 'roteiro.html';
+    });
+    
+    // Auto-fill for demo
+    window.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('user').value = USER;
+      document.getElementById('pass').value = PASS;
     });
   </script>
 </body>

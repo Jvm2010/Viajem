@@ -3,297 +3,324 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Roteiro — Viagem</title>
+  <title>Roteiro — Viagem Planner Pro</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <script type="module" src="app_mod.js" defer></script>
-  <script type="module" src="db_api.js" defer></script>
   <link rel="stylesheet" href="style.css" />
   <script type="module" src="firebase.js"></script>
+  <script type="module" src="db_api.js"></script>
+  <script type="module" src="app_mod.js"></script>
 </head>
 <body class="bg-gray-50 text-gray-800">
+  <!-- Verificação de autenticação -->
   <script>
-    // /* auth-check */
     (function(){
-      try{
+      try {
         const auth = sessionStorage.getItem('viagem:auth');
-        if(auth !== '1' && auth !== '0'){
-          window.location.href = 'index.html';
-        }
-        // if auth === '0' it's guest: allow but can restrict later
-      }catch(e){
-        console.error(e);
-      }
+        if(auth !== '1' && auth !== '0') window.location.href = 'index.html';
+      } catch(e) { console.error(e); }
     })();
   </script>
 
   <header class="bg-white shadow p-4 sticky top-0 z-10">
-    <div class="max-w-4xl mx-auto flex items-center justify-between">
-      <h1 class="text-lg font-semibold">Roteiro — Viagem</h1>
+    <div class="max-w-6xl mx-auto flex items-center justify-between">
+      <h1 class="text-lg font-semibold">Roteiro de Viagem</h1>
       <nav class="text-sm space-x-4">
-        <a href="index.html" class="text-sky-600">Início</a>
-        <a href="fotos.html" class="text-sky-600">Fotos & Vídeos</a>
+        <a href="index.html" class="text-sky-600">Sair</a>
+        <a href="fotos.html" class="text-sky-600">Galeria</a>
       </nav>
     </div>
   </header>
 
-  <main class="max-w-4xl mx-auto p-4 space-y-4">
+  <main class="max-w-6xl mx-auto p-4 space-y-6">
     <section class="card">
-      <h2 class="font-semibold">Adicionar local</h2>
-      <p class="small">Toque no mapa para adicionar um ponto ou use o campo para pesquisar.</p>
-
-      <div class="mt-3 grid grid-cols-1 gap-3">
-        <div class="flex gap-2">
-          <input id="search" class="flex-1 input card p-2" placeholder="Pesquisar endereço ou nome do local" />
-          <button id="btn-search" class="badge">Procurar</button>
+      <h2 class="font-semibold text-lg">Planejamento da Rota</h2>
+      
+      <div class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div>
+          <label class="small">Modo de Transporte</label>
+          <select id="transport-mode" class="p-2 card w-full mt-1">
+            <option value="car">Carro</option>
+            <option value="walk">A pé</option>
+            <option value="bike">Bicicleta</option>
+          </select>
         </div>
-
-        <div class="input-grid">
-          <input id="place-name" placeholder="Nome do local (ex: Praia do X)" class="p-2 card" />
-          <input id="place-value" placeholder="Valor (opcional)" class="p-2 card" type="number" min="0" />
-          <button id="add-current" class="badge">Adicionar</button>
+        
+        <div>
+          <label class="small">Consumo (km/l) - apenas carro</label>
+          <input id="fuel-efficiency" type="number" min="1" value="10" class="p-2 card w-full mt-1">
         </div>
-
-        <div class="flex gap-2 items-center">
-          <label class="small">Gastos gerais separados</label>
-          <button id="add-general" class="text-sm text-sky-600">Adicionar gasto geral</button>
+        
+        <div>
+          <label class="small">Velocidade Média (km/h)</label>
+          <input id="avg-speed" type="number" min="1" value="60" class="p-2 card w-full mt-1">
         </div>
       </div>
     </section>
 
-    <section class="grid md:grid-cols-2 gap-4">
-      <div class="card">
-        <h3 class="font-semibold">Mapa</h3>
-        <div id="route-controls" class="mt-3 flex gap-2 items-center">
-          <label class="small">Modo:</label>
-          <select id="route-mode" class="p-2 card">
-            <option value="driving">Carro</option>
-            <option value="foot">A Pé</option>
-          </select>
-          <label class="small">Consumo (km/L):</label>
-          <input id="car-consumo" class="p-2 card w-24" value="12" />
-          <label class="small">Preço (R$/L):</label>
-          <input id="car-preco" class="p-2 card w-24" value="5.50" />
-          <button id="calc-route" class="badge">Calcular rota</button>
-          <div id="route-info" class="small ml-4"></div>
-        </div>
+    <section class="grid md:grid-cols-3 gap-6">
+      <div class="md:col-span-2 card">
+        <h3 class="font-semibold">Mapa da Viagem</h3>
         <div id="map" class="mt-3"></div>
-        <div class="small mt-2">Clique nos marcadores para editar/remover. A ordem de lista define a rota.</div>
+        <div class="flex gap-2 mt-3">
+          <button id="optimize-route" class="badge">Otimizar Rota</button>
+          <button id="clear-route" class="text-sm text-red-600">Limpar Rota</button>
+        </div>
       </div>
-
+      
       <div class="card">
-        <h3 class="font-semibold">Locais salvos</h3>
-        <div id="places-list" class="mt-3"></div>
-
-        <h4 class="mt-4 font-semibold">Meus favoritos</h4>
-        <div id="favorites-list" class="mt-2"></div>
-
-        <h4 class="mt-4 font-semibold">Gastos gerais</h4>
-        <div id="general-list" class="mt-2"></div>
-
-        <div class="footer-summary mt-4">
-          <div>
-            <div class="small">Distância total</div>
-            <div id="total-distance" class="text-xl font-bold">0 km</div>
+        <h3 class="font-semibold">Resumo da Viagem</h3>
+        <div class="mt-3 space-y-4">
+          <div class="flex justify-between items-center">
+            <span class="small">Locais visitados:</span>
+            <span id="places-count" class="font-medium">0</span>
           </div>
-          <div>
-            <div class="small">Custo total</div>
-            <div id="total-cost" class="text-xl font-bold">R$ 0,00</div>
+          <div class="flex justify-between items-center">
+            <span class="small">Distância total:</span>
+            <span id="total-distance" class="font-medium">0 km</span>
+          </div>
+          <div class="flex justify-between items-center">
+            <span class="small">Tempo estimado:</span>
+            <span id="total-time" class="font-medium">0 horas</span>
+          </div>
+          <div class="flex justify-between items-center" id="fuel-section">
+            <span class="small">Combustível necessário:</span>
+            <span id="fuel-estimate" class="font-medium">0 litros</span>
+          </div>
+          <div class="flex justify-between items-center border-t pt-3">
+            <span class="small font-semibold">Custo total estimado:</span>
+            <span id="total-cost" class="text-lg font-bold">R$ 0,00</span>
           </div>
         </div>
+        
+        <div class="mt-6">
+          <h4 class="font-semibold">Ações</h4>
+          <div class="mt-2 flex flex-wrap gap-2">
+            <button id="export-json" class="badge">Exportar Roteiro</button>
+            <button id="share-trip" class="badge">Compartilhar</button>
+            <button id="save-trip" class="badge">Salvar</button>
+          </div>
+        </div>
+      </div>
+    </section>
 
-        <div class="mt-4 flex gap-2">
-          <button id="export-json" class="badge">Exportar JSON</button>
-          <button id="clear-all" class="text-sm text-red-600">Limpar tudo</button>
+    <section class="grid md:grid-cols-2 gap-6">
+      <div class="card">
+        <h3 class="font-semibold">Locais da Viagem</h3>
+        <div id="places-list" class="mt-3 space-y-2"></div>
+        
+        <div class="mt-4 p-3 bg-blue-50 rounded-lg">
+          <h4 class="font-medium text-sm">Adicionar novo local</h4>
+          <div class="mt-2 grid grid-cols-1 gap-2">
+            <input id="search" placeholder="Pesquisar local..." class="p-2 card w-full">
+            <div class="grid grid-cols-3 gap-2">
+              <input id="place-name" placeholder="Nome" class="p-2 card">
+              <input id="place-value" placeholder="Custo R$" type="number" class="p-2 card">
+              <button id="add-place" class="badge">Adicionar</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="card">
+        <h3 class="font-semibold">Gastos Adicionais</h3>
+        <div id="expenses-list" class="mt-3 space-y-2"></div>
+        
+        <div class="mt-4 p-3 bg-blue-50 rounded-lg">
+          <h4 class="font-medium text-sm">Adicionar gasto</h4>
+          <div class="mt-2 grid grid-cols-1 gap-2">
+            <div class="grid grid-cols-3 gap-2">
+              <input id="expense-title" placeholder="Descrição" class="p-2 card">
+              <input id="expense-amount" placeholder="Valor R$" type="number" class="p-2 card">
+              <button id="add-expense" class="badge">Adicionar</button>
+            </div>
+          </div>
         </div>
       </div>
     </section>
   </main>
 
-  <!-- Modal backdrop -->
-  <div id="modal-backdrop" class="modal-backdrop" aria-hidden="true" style="display:flex">
-    <div class="modal">
-      <div class="flex items-center justify-between">
-        <h3 id="modal-title" class="font-semibold text-lg">Detalhes do local</h3>
-        <button id="modal-cancel" class="text-sm text-gray-500">✕</button>
-      </div>
-      <div id="modal-body" class="mt-3 small"></div>
-      <div class="mt-4 flex justify-end gap-2">
-        <button id="modal-confirm" class="badge">Confirmar</button>
-        <button id="modal-cancel-2" onclick="document.getElementById('modal-backdrop').classList.remove('show')" class="text-sm text-gray-500">Cancelar</button>
-      </div>
-    </div>
-  </div>
-
-
-  <footer class="max-w-4xl mx-auto p-4 text-center small">
-    Desenvolvido — Melhorias rápidas para usar no celular.
-  </footer>
-
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  
   <script type="module">
-  import * as core from './app_mod.js';
-  import { subscribePlaces, savePlace, removePlace, subscribeGeneral, saveGeneral } from './db_api.js';
-
-  const map = L.map('map').setView([-23.5489, -46.6388], 12);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);
-
-  let places = [];
-  let general = [];
-  let markers = [];
-
-  
-function renderLists(){
-    const placesDiv = document.getElementById('places-list');
-    placesDiv.innerHTML='';
-    places.forEach((p, idx)=>{
-      const div = document.createElement('div'); div.className='list-item';
-      const favs = JSON.parse(localStorage.getItem('viagem:favorites')||'{}');
-      const isFav = !!favs[p.id];
-      const visitedMap = JSON.parse(localStorage.getItem('viagem:visited')||'{}');
-      const isVisited = !!visitedMap[p.id];
-      div.innerHTML = `<div class="flex items-center justify-between">
-          <div>
-            <div class="font-semibold">${p.name||p.title||'Local sem nome'}</div>
-            <div class="small">${p.address||''} ${p.note?'- '+p.note:''}</div>
-            <div class="small"><label><input type="checkbox" class="visit-toggle" data-id="${p.id}" ${isVisited?'checked':''}/> Visitado</label></div>
-          </div>
-          <div class="flex items-center gap-2">
-            <button class="btn-fav" data-id="${p.id}" title="Favorito">${isFav? '★' : '☆'}</button>
-            <button class="text-sm text-red-600 btn-remove" data-id="${p.id}">Remover</button>
-          </div>
-        </div>`;
-      placesDiv.appendChild(div);
-    });
-
-    // render favorites list
-    renderFavorites();
-
-    const gen = document.getElementById('general-list');
-    gen.innerHTML='';
-    general.forEach((g, i)=>{
-      const d = document.createElement('div'); d.className='list-item';
-      d.innerHTML = `<div><div class="font-semibold">${g.title}<span class="small"> — ${core.formatCurrency(g.amount||0)}</span></div><div class="small">${g.note||''}</div><div class="mt-2"><button class="text-sm text-red-600" data-gi="${g.id}">Remover</button></div></div>`;
-      gen.appendChild(d);
-    });
-
-    // markers
-    markers.forEach(m=>map.removeLayer(m)); markers = [];
-    places.forEach((p, idx)=>{
-      const visited = JSON.parse(localStorage.getItem('viagem:visited')||'{}')[p.id];
-      const color = visited ? 'green' : 'blue';
-      const icon = L.divIcon({className:'custom-marker', html:`<div style="background:${color};width:14px;height:14px;border-radius:50%;border:2px solid white"></div>`, iconSize:[18,18]});
-      const m = L.marker([p.lat,p.lng], {icon}).addTo(map).bindPopup(`<strong>${p.name||p.title||'Local'}</strong><div class="small">${p.address||''}</div><div class='mt-2'><button onclick="toggleVisited('${'${p.id}'}')">Marcar visitado</button></div>`);
-      markers.push(m);
-    });
-
-    // attach favorite / remove handlers
-    document.querySelectorAll('.btn-fav').forEach(b=>{
-      b.addEventListener('click', (ev)=>{
-        const id = ev.currentTarget.dataset.id;
-        toggleFavorite(id);
-      });
-    });
-    document.querySelectorAll('.btn-remove').forEach(b=>{
-      b.addEventListener('click', async (ev)=>{
-        const id = ev.currentTarget.dataset.id;
-        if(confirm('Remover este local?')) {
-          try{
-            await removePlace(id);
-          }catch(e){
-            // if offline save pending
-            const pending = JSON.parse(localStorage.getItem('viagem:pending')||'[]');
-            pending.push({type:'remove', id});
-    // bind visit toggles
-    document.querySelectorAll('.visit-toggle').forEach(cb=> cb.addEventListener('change', (ev)=>{ toggleVisited(ev.currentTarget.dataset.id); }));
-
-            localStorage.setItem('viagem:pending', JSON.stringify(pending));
-          }
-        }
-      });
-    });
-}
-
-
-// --- Routing & fuel estimation using public OSRM demo server (no API key required for small usage) ---
-window.currentRouteLayer = null;
-async function calculateAndDrawRoute(){
-  if(!places || places.length < 2){ alert('Adicione ao menos 2 locais para calcular rota.'); return; }
-  // build coordinates string: waypoints in order
-  const coords = places.map(p => `${p.lng},${p.lat}`).join(';');
-  const mode = document.getElementById('route-mode').value || 'driving';
-  // OSRM demo endpoint (public, use lightly)
-  const url = `https://router.project-osrm.org/route/v1/${mode}/${coords}?overview=full&geometries=geojson`;
-  try{
-    const res = await fetch(url);
-    const data = await res.json();
-    if(!data.routes || !data.routes.length){ alert('Rota não encontrada.'); return; }
-    const route = data.routes[0];
-    // remove previous
-    if(window.currentRouteLayer) map.removeLayer(window.currentRouteLayer);
-    // create polyline
-    const geo = route.geometry;
-    window.currentRouteLayer = L.geoJSON(geo, {
-      style: function(feature){
-        return { color: '#0077cc', weight: 5, opacity: 0.8 };
-      }
+    import { subscribePlaces, savePlace, removePlace, subscribeExpenses, saveExpense } from './db_api.js';
+    import { haversine, formatCurrency, calculateRoute } from './app_mod.js';
+    
+    // Inicialização do mapa
+    const map = L.map('map').setView([-23.5505, -46.6333], 12);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '© OpenStreetMap'
     }).addTo(map);
-    // zoom to route
-    map.fitBounds(window.currentRouteLayer.getBounds(), {padding:[40,40]});
-    // compute distance (meters) and convert to km
-    const dist_km = (route.distance||0)/1000;
-    // estimate fuel
-    const consumo = Number(document.getElementById('car-consumo').value) || 12;
-    const preco = Number(document.getElementById('car-preco').value) || 5.5;
-    const litros = dist_km / consumo;
-    const custo_comb = litros * preco;
-    document.getElementById('route-info').innerHTML = `Distância: ${dist_km.toFixed(2)} km — Est. combustível: ${litros.toFixed(2)} L — Custo: R$ ${custo_comb.toFixed(2)}`;
-  }catch(e){
-    console.error(e);
-    alert('Erro ao calcular rota. Verifique sua conexão.');
-  }
-}
-
-document.getElementById('calc-route').addEventListener('click', calculateAndDrawRoute);
-
-// support marking places as visited: update UI and marker color
-function toggleVisited(placeId){
-  const s = JSON.parse(localStorage.getItem('viagem:visited')||'{}');
-  s[placeId] = !s[placeId];
-  localStorage.setItem('viagem:visited', JSON.stringify(s));
-  renderLists(); // re-render to update colors
-}
-
-// modify renderLists markers to color by visited state (we'll patch where markers are created)
-
-function toggleFavorite(id){
-  const favs = JSON.parse(localStorage.getItem('viagem:favorites')||'{}');
-  if(favs[id]) delete favs[id];
-  else favs[id]=true;
-  localStorage.setItem('viagem:favorites', JSON.stringify(favs));
-  renderFavorites();
-  renderLists();
-}
-
-function renderFavorites(){
-  const favs = JSON.parse(localStorage.getItem('viagem:favorites')||'{}');
-  const favDiv = document.getElementById('favorites-list');
-  favDiv.innerHTML='';
-  Object.keys(favs).forEach(fid=>{
-    const place = places.find(p=>p.id===fid);
-    if(place){
-      const d = document.createElement('div'); d.className='list-item';
-      d.innerHTML = `<div class="flex items-center justify-between"><div><div class="font-semibold">${place.name||place.title}</div><div class="small">${place.address||''}</div></div><div><button class="text-sm" data-id="${fid}" onclick="window.focusPlace && window.focusPlace('${fid}')">Ir para</button></div></div>`;
-      favDiv.appendChild(d);
+    
+    let places = [];
+    let expenses = [];
+    let markers = [];
+    let routePolyline = null;
+    
+    // Atualizar interface
+    function updateUI() {
+      // Lista de locais
+      const placesList = document.getElementById('places-list');
+      placesList.innerHTML = places.map(place => `
+        <div class="list-item" data-id="${place.id}">
+          <div>
+            <div class="font-medium">${place.name}</div>
+            <div class="small">${place.lat.toFixed(5)}, ${place.lng.toFixed(5)}</div>
+          </div>
+          <div class="flex gap-2">
+            <button class="text-sm text-sky-600" data-action="view">Ver</button>
+            <button class="text-sm text-red-600" data-action="remove">Remover</button>
+          </div>
+        </div>
+      `).join('');
+      
+      // Lista de gastos
+      const expensesList = document.getElementById('expenses-list');
+      expensesList.innerHTML = expenses.map(expense => `
+        <div class="list-item" data-id="${expense.id}">
+          <div class="font-medium">${expense.title}</div>
+          <div class="flex items-center gap-2">
+            <span>${formatCurrency(expense.amount)}</span>
+            <button class="text-sm text-red-600" data-action="remove">Remover</button>
+          </div>
+        </div>
+      `).join('');
+      
+      // Atualizar marcadores no mapa
+      markers.forEach(m => map.removeLayer(m));
+      markers = places.map(place => 
+        L.marker([place.lat, place.lng])
+          .addTo(map)
+          .bindPopup(`<b>${place.name}</b><br>${place.value ? formatCurrency(place.value) : 'Sem custo'}`)
+      );
+      
+      // Calcular e mostrar estatísticas
+      calculateStatistics();
     }
-  });
-}
-
-
-</script>
-
-
+    
+    // Calcular estatísticas da viagem
+    function calculateStatistics() {
+      const transportMode = document.getElementById('transport-mode').value;
+      const fuelEfficiency = transportMode === 'car' ? 
+        parseFloat(document.getElementById('fuel-efficiency').value) : 0;
+      const avgSpeed = parseFloat(document.getElementById('avg-speed').value);
+      
+      const stats = calculateRoute(places, transportMode, fuelEfficiency, avgSpeed);
+      
+      document.getElementById('places-count').textContent = places.length;
+      document.getElementById('total-distance').textContent = `${stats.totalDistance.toFixed(2)} km`;
+      document.getElementById('total-time').textContent = stats.totalTime;
+      
+      if (transportMode === 'car') {
+        document.getElementById('fuel-section').style.display = 'flex';
+        document.getElementById('fuel-estimate').textContent = `${stats.fuelRequired.toFixed(1)} litros`;
+      } else {
+        document.getElementById('fuel-section').style.display = 'none';
+      }
+      
+      const totalCost = places.reduce((sum, p) => sum + (p.value || 0), 0) +
+                       expenses.reduce((sum, e) => sum + (e.amount || 0), 0);
+      document.getElementById('total-cost').textContent = formatCurrency(totalCost);
+      
+      // Desenhar rota no mapa
+      if (routePolyline) map.removeLayer(routePolyline);
+      if (stats.routeCoords.length > 1) {
+        routePolyline = L.polyline(stats.routeCoords, {
+          color: '#3b82f6',
+          weight: 4,
+          opacity: 0.7
+        }).addTo(map);
+      }
+    }
+    
+    // Event Listeners
+    document.getElementById('add-place').addEventListener('click', async () => {
+      const name = document.getElementById('place-name').value.trim();
+      const value = parseFloat(document.getElementById('place-value').value) || 0;
+      
+      if (!name) return alert('Digite um nome para o local');
+      
+      const coords = map.getCenter();
+      const place = { 
+        name, 
+        value,
+        lat: coords.lat,
+        lng: coords.lng,
+        created: Date.now()
+      };
+      
+      await savePlace(place);
+      document.getElementById('place-name').value = '';
+      document.getElementById('place-value').value = '';
+    });
+    
+    document.getElementById('add-expense').addEventListener('click', async () => {
+      const title = document.getElementById('expense-title').value.trim();
+      const amount = parseFloat(document.getElementById('expense-amount').value) || 0;
+      
+      if (!title) return alert('Digite uma descrição para o gasto');
+      
+      const expense = { title, amount, created: Date.now() };
+      await saveExpense(expense);
+      
+      document.getElementById('expense-title').value = '';
+      document.getElementById('expense-amount').value = '';
+    });
+    
+    document.getElementById('places-list').addEventListener('click', (e) => {
+      const btn = e.target.closest('button');
+      if (!btn) return;
+      
+      const item = btn.closest('.list-item');
+      const id = item.dataset.id;
+      const action = btn.dataset.action;
+      
+      if (action === 'view') {
+        const place = places.find(p => p.id === id);
+        if (place) map.setView([place.lat, place.lng], 15);
+      } else if (action === 'remove') {
+        if (confirm('Remover este item?')) removePlace(id);
+      }
+    });
+    
+    document.getElementById('expenses-list').addEventListener('click', (e) => {
+      const btn = e.target.closest('button');
+      if (!btn || btn.dataset.action !== 'remove') return;
+      
+      const id = btn.closest('.list-item').dataset.id;
+      if (confirm('Remover este gasto?')) {
+        // Implementar removeExpense se necessário
+      }
+    });
+    
+    document.getElementById('optimize-route').addEventListener('click', () => {
+      if (places.length < 3) return alert('Adicione pelo menos 3 locais para otimizar');
+      alert('Funcionalidade de otimização será implementada na próxima versão!');
+    });
+    
+    document.getElementById('clear-route').addEventListener('click', () => {
+      if (confirm('Limpar toda a rota?')) {
+        places.forEach(p => removePlace(p.id));
+        expenses.forEach(e => { /* remover gastos */ });
+      }
+    });
+    
+    // Atualizar quando mudar modo de transporte
+    document.getElementById('transport-mode').addEventListener('change', () => {
+      calculateStatistics();
+    });
+    
+    // Subscrever dados do Firebase
+    subscribePlaces(ps => {
+      places = ps;
+      updateUI();
+    });
+    
+    subscribeExpenses(es => {
+      expenses = es;
+      updateUI();
+    });
+  </script>
 </body>
 </html>

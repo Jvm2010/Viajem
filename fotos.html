@@ -3,467 +3,281 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Fotos & Vídeos — Viagem</title>
+  <title>Galeria de Fotos — Viagem Planner Pro</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="style.css" />
   <script type="module" src="firebase.js"></script>
+  <script type="module" src="ia_helper.js"></script>
 </head>
 <body class="bg-gray-50 text-gray-800">
+  <!-- Verificação de autenticação -->
   <script>
-    // /* auth-check */
     (function(){
-      try{
+      try {
         const auth = sessionStorage.getItem('viagem:auth');
-        if(auth !== '1' && auth !== '0'){
-          window.location.href = 'index.html';
-        }
-        // if auth === '0' it's guest: allow but can restrict later
-      }catch(e){
-        console.error(e);
-      }
+        if(auth !== '1' && auth !== '0') window.location.href = 'index.html';
+      } catch(e) { console.error(e); }
     })();
   </script>
 
   <header class="bg-white shadow p-4 sticky top-0 z-10">
-    <div class="max-w-4xl mx-auto flex items-center justify-between">
-      <h1 class="text-lg font-semibold">Fotos & Vídeos</h1>
+    <div class="max-w-6xl mx-auto flex items-center justify-between">
+      <h1 class="text-lg font-semibold">Galeria de Fotos</h1>
       <nav class="text-sm space-x-4">
-        <a href="index.html" class="text-sky-600">Início</a>
+        <a href="index.html" class="text-sky-600">Sair</a>
         <a href="roteiro.html" class="text-sky-600">Roteiro</a>
       </nav>
     </div>
   </header>
 
-  <main class="max-w-4xl mx-auto p-4 space-y-4">
+  <main class="max-w-6xl mx-auto p-4 space-y-6">
     <section class="card">
-      <h2 class="font-semibold">Galeria</h2>
-      <p class="small">Tire fotos direto do celular ou faça upload. Use templates rápidos para criar um "tumblr" estilizado.</p>
-
-      <div class="mt-3 grid grid-cols-1 gap-3">
-        <div class="flex gap-2">
-          <input id="file-input" type="file" accept="image/*" multiple class="p-2 card" />
-          <button id="open-camera" class="badge">Abrir Câmera</button>
+      <h2 class="font-semibold text-lg">Upload de Fotos</h2>
+      
+      <div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+          <input type="file" id="file-upload" accept="image/*" multiple class="hidden">
+          <button id="upload-btn" class="badge mb-2">Selecionar Fotos</button>
+          <p class="small text-gray-500">Ou arraste e solte fotos aqui</p>
         </div>
-
-        <div class="mt-2 grid grid-cols-3 gap-2" id="gallery">
-        <div class="mt-4 card">
-          <h4 class="font-semibold">Gerador AI de vídeos (integração)</h4>
-          <p class="small">Aqui você pode anexar fotos e usar um serviço de AI para criar vídeos tipo "montagem de casal" automaticamente.
-          Implementações que você pode integrar (recomendado via backend seguro): Runway (image->video), Kapwing/InVideo (slideshow/video editing APIs), Creatomate (API para slideshows) — ver pesquisa na página inicial para escolher.</p>
-          <p class="small"><strong>Observação:</strong> para gerar vídeos reais é necessário registrar-se nos serviços, obter chaves de API e usar um backend (não expor chaves no frontend).</p>
-          <div class="mt-2">
-            <label class="small">Escolha um template</label>
-            <select id="ai-template" class="p-2 card w-full">
-              <option value="romantic">Casal - Romantic montage</option>
-              <option value="friends">Amigos - Roadtrip highlights</option>
-              <option value="tumblr">Tumblr - Aesthetic montage</option>
-            </select>
-            <div class="mt-2 flex gap-2">
-              <button id="generate-ai" class="badge">Gerar vídeo AI (placeholder)</button>
-              <button id="download-slideshow" class="badge">Gerar slideshow local (MP4)</button>
+        
+        <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+          <button id="camera-btn" class="badge mb-2">Tirar Foto</button>
+          <p class="small text-gray-500">Use a câmera do seu dispositivo</p>
+        </div>
+      </div>
+    </section>
+    
+    <section class="card">
+      <h2 class="font-semibold text-lg">Suas Fotos</h2>
+      <div class="mt-3 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3" id="gallery"></div>
+    </section>
+    
+    <section class="card" id="ia-section">
+      <h2 class="font-semibold text-lg">Criação Automática com IA</h2>
+      <p class="small mt-1">Selecione fotos e crie vídeos incríveis automaticamente</p>
+      
+      <div class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="ia-option" data-style="romantic">
+          <div class="bg-pink-100 rounded-lg p-4 h-full">
+            <div class="bg-pink-200 h-32 rounded-lg flex items-center justify-center">
+              <span class="text-pink-500 text-4xl">❤️</span>
             </div>
-            <div id="ai-status" class="small mt-2"></div>
+            <h4 class="mt-3 font-medium">Romântico</h4>
+            <p class="small mt-1 text-gray-600">Transições suaves, filtros quentes</p>
+            <button class="badge mt-3 w-full">Criar Vídeo</button>
           </div>
         </div>
-
-
-        <div class="mt-4">
-          <h4 class="font-semibold">Templates rápidos (para vídeos de casal)</h4>
-          <p class="small">Escolha um template e clique em "Criar slideshow" para gerar uma página com transições que pode ser gravada.</p>
-          <select id="template" class="p-2 card mt-2">
-            <option value="romantic">Romântico - fades suaves com trilha lenta</option>
-            <option value="adventure">Aventura - cortes rápidos e zooms</option>
-            <option value="cinematic">Cinemático - barras pretas e letras grandes</option>
-          </select>
-          <div class="mt-2 flex gap-2">
-            <button id="make-slideshow" class="badge">Criar slideshow</button>
-            <button id="clear-gallery" class="text-sm text-red-600">Limpar galeria</button>
+        
+        <div class="ia-option" data-style="adventure">
+          <div class="bg-green-100 rounded-lg p-4 h-full">
+            <div class="bg-green-200 h-32 rounded-lg flex items-center justify-center">
+              <span class="text-green-500 text-4xl">🏔️</span>
+            </div>
+            <h4 class="mt-3 font-medium">Aventura</h4>
+            <p class="small mt-1 text-gray-600">Cortes dinâmicos, música animada</p>
+            <button class="badge mt-3 w-full">Criar Vídeo</button>
           </div>
+        </div>
+        
+        <div class="ia-option" data-style="cinematic">
+          <div class="bg-blue-100 rounded-lg p-4 h-full">
+            <div class="bg-blue-200 h-32 rounded-lg flex items-center justify-center">
+              <span class="text-blue-500 text-4xl">🎬</span>
+            </div>
+            <h4 class="mt-3 font-medium">Cinemático</h4>
+            <p class="small mt-1 text-gray-600">Efeito filme, barras laterais</p>
+            <button class="badge mt-3 w-full">Criar Vídeo</button>
+          </div>
+        </div>
+      </div>
+      
+      <div id="ia-result" class="mt-6 hidden">
+        <div class="flex justify-between items-center">
+          <h4 class="font-semibold">Seu vídeo está pronto!</h4>
+          <button id="download-video" class="badge">Baixar Vídeo</button>
+        </div>
+        <video controls class="w-full mt-3 rounded-lg bg-black"></video>
+        <div class="mt-3 flex gap-2">
+          <button id="save-video" class="badge">Salvar na Galeria</button>
+          <button id="new-video" class="text-sm text-sky-600">Criar outro</button>
         </div>
       </div>
     </section>
   </main>
 
-  
   <script type="module">
-  import app, { db, storage } from './firebase.js';
-  import { ref, push, set, onValue } from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-database.js';
-  import { ref as sRef, uploadString, uploadBytes, getDownloadURL } from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-storage.js';
-
-  const gallery = document.getElementById('gallery');
-  const filesInput = document.getElementById('file-input');
-  let images = []; // local cache of dataURLs (but we'll upload immediately)
-
-  // load locais list for association
-  let locaisList = [];
-  onValue(ref(db,'locais'), (snap)=>{
-    const val = snap.val() || {};
-    locaisList = Object.keys(val).map(k=>({id:k, name: val[k].name}));
-  });
-
-  // helper to upload dataURL to storage and link to DB under locais or gastos
-  async function uploadAndLink(dataUrl, assocType, assocId){
-    const filename = Date.now() + '.jpg';
-    let path = 'media/' + filename;
-    if(assocType === 'local' && assocId) path = `locais/${assocId}/fotos/${filename}`;
-    if(assocType === 'gasto' && assocId) path = `gastos/${assocId}/fotos/${filename}`;
-    const sref = sRef(storage, path);
-    // upload as data_url
-    await uploadString(sref, dataUrl, 'data_url');
-    const url = await getDownloadURL(sref);
-    // push url into DB under the assoc node
-    if(assocType === 'local' && assocId){
-      const nodeRef = ref(db, `locais/${assocId}/fotos`);
-      const list = (await (await fetch('https://www.gstatic.com/firebasejs/placeholder')).ok) ? [] : []; // noop to keep structure
-      // use push by reading current and updating array (simple approach)
-      const curSnap = await fetch('/__no__');
+    import { VideoCreator } from './ia_helper.js';
+    import { uploadImage, getImageUrl, saveVideo } from './db_api.js';
+    
+    const gallery = document.getElementById('gallery');
+    const fileUpload = document.getElementById('file-upload');
+    const uploadBtn = document.getElementById('upload-btn');
+    const cameraBtn = document.getElementById('camera-btn');
+    const videoResult = document.querySelector('#ia-result video');
+    const videoCreator = new VideoCreator();
+    
+    let selectedPhotos = [];
+    let currentUserPhotos = [];
+    
+    // Carregar fotos do usuário
+    async function loadUserPhotos() {
+      // Simulação - na prática buscaria do Firebase
+      currentUserPhotos = JSON.parse(localStorage.getItem('user_photos') || [];
+      renderGallery();
     }
-    return url;
-  }
-
-  async function simpleUploadToMedia(dataUrl){
-    const filename = Date.now() + '.jpg';
-    const path = 'media/' + filename;
-    const sref = sRef(storage, path);
-    await uploadString(sref, dataUrl, 'data_url');
-    const url = await getDownloadURL(sref);
-    // create DB entry in /midia
-    const md = { url, created: Date.now() };
-    const p = push(ref(db,'midia'));
-    await set(p, md);
-    return url;
-  }
-
-  function render(){
-    gallery.innerHTML='';
-    images.forEach((d,i)=>{
-      const div = document.createElement('div');
-      div.className='card p-1';
-      div.innerHTML = `<img src="${d}" style="width:100%;height:120px;object-fit:cover;border-radius:8px" /> <div class="small mt-1 text-center"><button data-i="${i}" class="text-sm text-red-600">Remover</button></div>`;
-      gallery.appendChild(div);
+    
+    // Renderizar galeria
+    function renderGallery() {
+      gallery.innerHTML = currentUserPhotos.map((photo, index) => `
+        <div class="relative group">
+          <img src="${photo.url}" class="w-full h-32 object-cover rounded-lg">
+          <div class="absolute inset-0 bg-black bg-opacity-50 rounded-lg opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
+            <button data-index="${index}" class="select-btn ${photo.selected ? 'bg-blue-500' : 'bg-white'} text-xs p-1 rounded">
+              ${photo.selected ? '✓ Selecionada' : 'Selecionar'}
+            </button>
+          </div>
+        </div>
+      `).join('');
+    }
+    
+    // Upload de fotos
+    uploadBtn.addEventListener('click', () => fileUpload.click());
+    
+    fileUpload.addEventListener('change', async (e) => {
+      const files = Array.from(e.target.files);
+      if (files.length === 0) return;
+      
+      for (const file of files) {
+        try {
+          const url = await uploadImage(file);
+          currentUserPhotos.push({ url, selected: false });
+        } catch (error) {
+          console.error('Erro no upload:', error);
+        }
+      }
+      
+      savePhotos();
+      renderGallery();
     });
-    localStorage.setItem('viagem:photos', JSON.stringify(images));
-  }
-
-  filesInput.addEventListener('change', async (e)=>{
-    const files = Array.from(e.target.files);
-    for(const f of files){
-      const data = await readFileAsDataURL(f);
-      // ask association
-      const assoc = prompt('Associar a (local id) ou (gasto id) ou deixe em branco para biblioteca. Para ver ids, abra Roteiro e copie o id do item.');
-      if(assoc){
-        // attempt local association: if startsWith 'local:' or 'gasto:'
-        if(assoc.startsWith('local:')){
-          const id = assoc.split(':')[1];
-          const filename = Date.now() + '.jpg';
-          const path = `locais/${id}/fotos/${filename}`;
-          const sref = sRef(storage, path);
-          await uploadString(sref, data, 'data_url');
-          const url = await getDownloadURL(sref);
-          // push into database array
-          const cur = await fetch('/__no__');
-          // simple add: set at /locais/{id}/fotos_{timestamp}
-          await set(ref(db, `locais/${id}/fotos_${Date.now()}`), url);
-          alert('Upload concluído e associado ao local.');
-        } else if(assoc.startsWith('gasto:')){
-          const id = assoc.split(':')[1];
-          const filename = Date.now() + '.jpg';
-          const path = `gastos/${id}/fotos/${filename}`;
-          const sref = sRef(storage, path);
-          await uploadString(sref, data, 'data_url');
-          const url = await getDownloadURL(sref);
-          await set(ref(db, `gastos/${id}/fotos_${Date.now()}`), url);
-          alert('Upload concluído e associado ao gasto.');
-        } else {
-          // if user pasted an id, assume local
-          try{
-            const filename = Date.now() + '.jpg';
-            const path = `locais/${assoc}/fotos/${filename}`;
-            const sref = sRef(storage, path);
-            await uploadString(sref, data, 'data_url');
-            const url = await getDownloadURL(sref);
-            await set(ref(db, `locais/${assoc}/fotos_${Date.now()}`), url);
-            alert('Upload concluído e associado.');
-          }catch(e){ console.error(e); alert('Erro ao associar.'); }
+    
+    // Tirar foto
+    cameraBtn.addEventListener('click', async () => {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      
+      // Criar interface para tirar foto
+      const cameraModal = document.createElement('div');
+      cameraModal.className = 'fixed inset-0 bg-black bg-opacity-75 flex flex-col items-center justify-center z-50';
+      cameraModal.innerHTML = `
+        <div class="bg-white rounded-lg p-4 max-w-md w-full">
+          <h3 class="font-semibold mb-2">Tirar Foto</h3>
+          <video id="camera-preview" class="w-full bg-black rounded" autoplay></video>
+          <div class="mt-3 flex justify-center gap-3">
+            <button id="capture-btn" class="badge">Capturar</button>
+            <button id="cancel-camera" class="text-sm text-gray-600">Cancelar</button>
+          </div>
+        </div>
+      `;
+      
+      document.body.appendChild(cameraModal);
+      const preview = document.getElementById('camera-preview');
+      preview.srcObject = stream;
+      
+      document.getElementById('capture-btn').addEventListener('click', async () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = preview.videoWidth;
+        canvas.height = preview.videoHeight;
+        canvas.getContext('2d').drawImage(preview, 0, 0);
+        
+        const photoUrl = canvas.toDataURL('image/jpeg');
+        currentUserPhotos.push({ url: photoUrl, selected: false });
+        savePhotos();
+        renderGallery();
+        
+        stream.getTracks().forEach(track => track.stop());
+        cameraModal.remove();
+      });
+      
+      document.getElementById('cancel-camera').addEventListener('click', () => {
+        stream.getTracks().forEach(track => track.stop());
+        cameraModal.remove();
+      });
+    });
+    
+    // Selecionar fotos para vídeo
+    gallery.addEventListener('click', (e) => {
+      const selectBtn = e.target.closest('.select-btn');
+      if (!selectBtn) return;
+      
+      const index = selectBtn.dataset.index;
+      currentUserPhotos[index].selected = !currentUserPhotos[index].selected;
+      savePhotos();
+      renderGallery();
+    });
+    
+    // Criar vídeos com IA
+    document.querySelectorAll('.ia-option').forEach(option => {
+      option.addEventListener('click', async () => {
+        const style = option.dataset.style;
+        selectedPhotos = currentUserPhotos.filter(p => p.selected);
+        
+        if (selectedPhotos.length < 3) {
+          alert('Selecione pelo menos 3 fotos para criar um vídeo');
+          return;
         }
-      } else {
-        // library
-        const url = await simpleUploadToMedia(data);
-        images.push(url);
+        
+        // Mostrar loading
+        option.querySelector('button').textContent = 'Processando...';
+        
+        try {
+          const video = await videoCreator.createVideo(
+            selectedPhotos.map(p => p.url),
+            style
+          );
+          
+          videoResult.src = video.url;
+          document.getElementById('ia-result').classList.remove('hidden');
+        } catch (error) {
+          console.error('Erro ao criar vídeo:', error);
+          alert('Erro ao criar vídeo. Tente novamente.');
+        }
+        
+        option.querySelector('button').textContent = 'Criar Vídeo';
+      });
+    });
+    
+    // Salvar vídeo
+    document.getElementById('save-video').addEventListener('click', async () => {
+      try {
+        await saveVideo(videoResult.src);
+        alert('Vídeo salvo na galeria!');
+      } catch (error) {
+        console.error('Erro ao salvar vídeo:', error);
+        alert('Erro ao salvar vídeo.');
       }
+    });
+    
+    // Baixar vídeo
+    document.getElementById('download-video').addEventListener('click', () => {
+      const a = document.createElement('a');
+      a.href = videoResult.src;
+      a.download = `viagem-${new Date().toISOString().slice(0,10)}.mp4`;
+      a.click();
+    });
+    
+    // Novo vídeo
+    document.getElementById('new-video').addEventListener('click', () => {
+      document.getElementById('ia-result').classList.add('hidden');
+    });
+    
+    // Salvar fotos no localStorage (simulação)
+    function savePhotos() {
+      localStorage.setItem('user_photos', JSON.stringify(currentUserPhotos));
     }
-    render();
-  });
-
-  gallery.addEventListener('click', (ev)=>{
-    const b = ev.target.closest('button');
-    if(!b) return;
-    const i = Number(b.dataset.i);
-    images.splice(i,1); render();
-  });
-
-  document.getElementById('clear-gallery').addEventListener('click', ()=>{ if(confirm('Apagar todas as imagens da galeria local?')){ images=[]; render(); }});
-
-  function readFileAsDataURL(file){ return new Promise((res,rej)=>{ const fr = new FileReader(); fr.onload = ()=>res(fr.result); fr.onerror = rej; fr.readAsDataURL(file); }); }
-
-  document.getElementById('open-camera').addEventListener('click', async ()=>{
-    // open capture via input capture if available
-    const inp = document.createElement('input'); inp.type='file'; inp.accept='image/*'; inp.capture='environment';
-    inp.onchange = async (e)=>{ const f = e.target.files[0]; const data = await readFileAsDataURL(f); 
-      const assoc = prompt('Associar a (local:id) ou (gasto:id) ou deixe em branco para biblioteca');
-      if(assoc){
-        if(assoc.startsWith('local:')){
-          const id = assoc.split(':')[1];
-          const filename = Date.now() + '.jpg';
-          const path = `locais/${id}/fotos/${filename}`;
-          const sref = sRef(storage, path);
-          await uploadString(sref, data, 'data_url');
-          const url = await getDownloadURL(sref);
-          await set(ref(db, `locais/${id}/fotos_${Date.now()}`), url);
-          alert('Foto enviada.');
-        } else {
-          const url = await simpleUploadToMedia(data);
-          images.push(url); render();
-        }
-      } else {
-        const url = await simpleUploadToMedia(data);
-        images.push(url); render();
-      }
-    };
-    inp.click();
-  });
-
-  // init load images from localStorage (library)
-  images = JSON.parse(localStorage.getItem('viagem:photos')||'[]');
-  render();
+    
+    // Inicializar
+    loadUserPhotos();
   </script>
-
-<script type="module">
-  import { uploadImageDataURL, addPhotoToPlace, saveGlobalPhoto, subscribePlaces } from './db_api.js';
-
-  const gallery = document.getElementById('gallery');
-  const filesInput = document.getElementById('file-input');
-  const placeSelect = document.createElement('select');
-  placeSelect.id = 'place-select';
-  placeSelect.className = 'p-2 card';
-  placeSelect.innerHTML = '<option value="">(Sem local) - salvar global</option>';
-  document.querySelector('.card').insertBefore(placeSelect, document.getElementById('file-input').parentElement.nextSibling);
-
-  let images = JSON.parse(localStorage.getItem('viagem:photos')||'[]');
-
-  function render(){
-    gallery.innerHTML='';
-    images.forEach((d,i)=>{
-      const div = document.createElement('div');
-      div.className='card p-1';
-      div.innerHTML = `<img src="${d}" style="width:100%;height:120px;object-fit:cover;border-radius:8px" /> <div class="small mt-1 text-center"><button data-i="${i}" class="text-sm text-red-600">Remover</button></div>`;
-      gallery.appendChild(div);
-    });
-    localStorage.setItem('viagem:photos', JSON.stringify(images));
-  }
-
-  filesInput.addEventListener('change', async (e)=>{
-    const files = Array.from(e.target.files);
-    for(const f of files){
-      const data = await readFileAsDataURL(f);
-      // upload to Firebase Storage
-      try{
-        const name = 'photo_'+Date.now()+'.jpg';
-        const path = `users/joao123/photos/${name}`;
-        const url = await uploadImageDataURL(data, path);
-        const sel = document.getElementById('place-select').value;
-        if(sel){
-          await addPhotoToPlace(sel, url);
-        } else {
-          await saveGlobalPhoto(url);
-        }
-        images.push(url); // store url in local gallery as well
-      }catch(err){
-        console.error('Upload failed', err);
-        images.push(data); // store locally
-      }
-    }
-    render();
-  });
-
-  gallery.addEventListener('click', (ev)=>{
-    const b = ev.target.closest('button');
-    if(!b) return;
-    const i = Number(b.dataset.i);
-    images.splice(i,1); render();
-  });
-
-  document.getElementById('clear-gallery').addEventListener('click', ()=>{ if(confirm('Apagar todas as imagens?')){ images=[]; render(); }});
-
-  function readFileAsDataURL(file){ return new Promise((res,rej)=>{ const fr = new FileReader(); fr.onload = ()=>res(fr.result); fr.onerror = rej; fr.readAsDataURL(file); }); }
-
-  document.getElementById('open-camera').addEventListener('click', async ()=>{
-    const inp = document.createElement('input'); inp.type='file'; inp.accept='image/*'; inp.capture='environment';
-    inp.onchange = async (e)=>{ const f = e.target.files[0]; const data = await readFileAsDataURL(f); try{ const name = 'photo_'+Date.now()+'.jpg'; const path = `users/joao123/photos/${name}`; const url = await uploadImageDataURL(data, path); const sel = document.getElementById('place-select').value; if(sel) await addPhotoToPlace(sel, url); else await saveGlobalPhoto(url); images.push(url); }catch(err){ images.push(data); } render(); };
-    inp.click();
-  });
-
-  // subscribe places to fill select options
-  subscribePlaces(ps=>{
-    const sel = document.getElementById('place-select');
-    sel.innerHTML = '<option value="">(Sem local) - salvar global</option>';
-    ps.forEach(p=> sel.innerHTML += `<option value="${p.id}">${p.name}</option>`);
-  });
-</script>
-
-
-// Client-side slideshow -> records a WebM video using canvas + MediaRecorder.
-// No server required. Works on modern browsers (Chrome/Edge/Firefox with varying support).
-async function recordSlideshow(options){
-  const input = document.getElementById('file-input');
-  if(!input.files.length){ alert('Adicione fotos primeiro'); return; }
-  const files = Array.from(input.files);
-  const durationPerImage = Number(prompt("Segundos por imagem?", "2")) || 2;
-  const width = 1280, height = 720;
-  // create offscreen canvas
-  const canvas = document.createElement('canvas');
-  canvas.width = width; canvas.height = height;
-  const ctx = canvas.getContext('2d');
-  // prepare image elements
-  const imgs = await Promise.all(files.map(f=> new Promise((res)=>{
-    const img = new Image();
-    img.onload = ()=>res(img);
-    img.onerror = ()=>res(null);
-    img.src = URL.createObjectURL(f);
-  })));
-  // capture stream and record
-  const stream = canvas.captureStream(30); // 30fps
-  const recordedChunks = [];
-  const rec = new MediaRecorder(stream, {mimeType:'video/webm;codecs=vp9'});
-  rec.ondataavailable = e=>{ if(e.data && e.data.size) recordedChunks.push(e.data); };
-  rec.start();
-  // draw each image for durationPerImage seconds
-  for(const img of imgs){
-    // fill background
-    ctx.fillStyle = '#000'; ctx.fillRect(0,0,width,height);
-    if(img){
-      // calculate fit
-      const ar = img.width/img.height;
-      let w = width, h = width / ar;
-      if(h > height){ h = height; w = height * ar; }
-      const x = (width - w)/2, y = (height - h)/2;
-      ctx.drawImage(img, x, y, w, h);
-    }
-    // draw caption if needed
-    await new Promise(res=> setTimeout(res, durationPerImage*1000));
-  }
-  // stop recorder
-  rec.stop();
-  await new Promise(res=> rec.onstop = res);
-  const blob = new Blob(recordedChunks, {type:'video/webm'});
-  const url = URL.createObjectURL(blob);
-  // open in new tab and provide download link
-  const wnd = window.open('');
-  wnd.document.write('<html><body style="margin:0;background:#000;color:#fff"><video controls autoplay src="'+url+'" style="width:100%;height:100%"></video><a href="'+url+'" download="slideshow.webm" style="position:fixed;left:10px;top:10px;padding:8px;background:#fff;color:#000;border-radius:6px;text-decoration:none">Download</a></body></html>');
-}
-
-// wire up button
-document.getElementById('download-slideshow').addEventListener('click', ()=>{
-  recordSlideshow();
-});
-
 </body>
 </html>
-
-<script>
-document.getElementById('file-input').addEventListener('change', evt=>{
-  const out = document.getElementById('gallery');
-  out.innerHTML='';
-  const files = Array.from(evt.target.files).slice(0,20);
-  files.forEach(f=>{
-    const url = URL.createObjectURL(f);
-    const img = document.createElement('img');
-    img.src = url; img.className='w-full h-24 object-cover rounded';
-    const wrapper = document.createElement('div'); wrapper.appendChild(img);
-    out.appendChild(wrapper);
-  });
-});
-
-// Placeholder: call backend to use Runway/Creatomate/Kapwing APIs to generate videos
-document.getElementById('generate-ai').addEventListener('click', async ()=>{
-  const status = document.getElementById('ai-status');
-  status.textContent = 'Preparando requisição... (este é um stub - configure backend API)';
-  // Collect photos
-  const input = document.getElementById('file-input');
-  if(!input.files.length){ status.textContent='Adicione fotos primeiro.'; return; }
-  // NOTE: You must implement a backend route /api/generate-video that accepts photos and calls the chosen service.
-  status.innerHTML = 'Exemplo: enviar fotos para seu backend que então chama Runway / Creatomate / Kapwing API. Veja recomendações no relatório.';
-});
-
-// Simple local slideshow generator (browser side) - will create a GIF-like video using Whammy or CCapture in a real app.
-// Here we just create a downloadable HTML page that displays the slideshow.
-document.getElementById('download-slideshow').addEventListener('click', ()=>{
-  const input = document.getElementById('file-input');
-  if(!input.files.length){ alert('Adicione fotos primeiro'); return; }
-  const files = Array.from(input.files).slice(0,30);
-  const wnd = window.open('');
-  wnd.document.write('<html><head><title>Slideshow</title></head><body style="margin:0">');
-  files.forEach(f=>{
-    const url = URL.createObjectURL(f);
-    wnd.document.write('<div style="width:100vw;height:100vh;background:#000;display:flex;align-items:center;justify-content:center"><img src="'+url+'" style="max-width:90%;max-height:90%"></div>');
-  });
-  wnd.document.write('
-// Client-side slideshow -> records a WebM video using canvas + MediaRecorder.
-// No server required. Works on modern browsers (Chrome/Edge/Firefox with varying support).
-async function recordSlideshow(options){
-  const input = document.getElementById('file-input');
-  if(!input.files.length){ alert('Adicione fotos primeiro'); return; }
-  const files = Array.from(input.files);
-  const durationPerImage = Number(prompt("Segundos por imagem?", "2")) || 2;
-  const width = 1280, height = 720;
-  // create offscreen canvas
-  const canvas = document.createElement('canvas');
-  canvas.width = width; canvas.height = height;
-  const ctx = canvas.getContext('2d');
-  // prepare image elements
-  const imgs = await Promise.all(files.map(f=> new Promise((res)=>{
-    const img = new Image();
-    img.onload = ()=>res(img);
-    img.onerror = ()=>res(null);
-    img.src = URL.createObjectURL(f);
-  })));
-  // capture stream and record
-  const stream = canvas.captureStream(30); // 30fps
-  const recordedChunks = [];
-  const rec = new MediaRecorder(stream, {mimeType:'video/webm;codecs=vp9'});
-  rec.ondataavailable = e=>{ if(e.data && e.data.size) recordedChunks.push(e.data); };
-  rec.start();
-  // draw each image for durationPerImage seconds
-  for(const img of imgs){
-    // fill background
-    ctx.fillStyle = '#000'; ctx.fillRect(0,0,width,height);
-    if(img){
-      // calculate fit
-      const ar = img.width/img.height;
-      let w = width, h = width / ar;
-      if(h > height){ h = height; w = height * ar; }
-      const x = (width - w)/2, y = (height - h)/2;
-      ctx.drawImage(img, x, y, w, h);
-    }
-    // draw caption if needed
-    await new Promise(res=> setTimeout(res, durationPerImage*1000));
-  }
-  // stop recorder
-  rec.stop();
-  await new Promise(res=> rec.onstop = res);
-  const blob = new Blob(recordedChunks, {type:'video/webm'});
-  const url = URL.createObjectURL(blob);
-  // open in new tab and provide download link
-  const wnd = window.open('');
-  wnd.document.write('<html><body style="margin:0;background:#000;color:#fff"><video controls autoplay src="'+url+'" style="width:100%;height:100%"></video><a href="'+url+'" download="slideshow.webm" style="position:fixed;left:10px;top:10px;padding:8px;background:#fff;color:#000;border-radius:6px;text-decoration:none">Download</a></body></html>');
-}
-
-// wire up button
-document.getElementById('download-slideshow').addEventListener('click', ()=>{
-  recordSlideshow();
-});
-
-</body></html>');
-});
-</script>
