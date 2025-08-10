@@ -3,23 +3,28 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Roteiro — Viagem</title>
+  <title>Roteiro — Viagem (Mapa Corrigido)</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="manifest" href="manifest.json">
-  <script defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAPkjcgFgdopkeZN0GnvhOc787jrajJnWc&libraries=places"></script>
   <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
   <script type="module" src="firebase.js"></script>
+  <style>
+    /* Ensure map container has height */
+    #map { width: 100%; height: 520px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+    html,body{height:100%;}
+  </style>
 </head>
 <body class="bg-gray-50 text-gray-800">
   <header class="bg-white shadow p-4">
     <div class="max-w-6xl mx-auto flex items-center justify-between">
-      <h1 class="text-lg font-semibold">Roteiro & Gastos</h1>
+      <h1 class="text-lg font-semibold">Roteiro & Gastos (Mapa Corrigido)</h1>
       <a href="index.html" class="text-sm text-sky-600">← Voltar</a>
     </div>
   </header>
+
   <main class="max-w-6xl mx-auto p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
     <section class="lg:col-span-2 bg-white rounded-2xl shadow p-4">
-      <div id="map" class="w-full h-[520px] rounded-lg overflow-hidden shadow-sm"></div>
+      <div id="map"></div>
       <div class="mt-3 flex gap-2">
         <input id="place-input" class="flex-1 rounded-md border px-3 py-2" placeholder="Buscar lugar (ex: Praia do Rosa)">
         <button id="add-marker" class="px-4 py-2 rounded-md bg-sky-600 text-white">Adicionar</button>
@@ -55,206 +60,39 @@
     </aside>
   </main>
 
+  <!-- Inline script (non-module) so initMap is global for the callback -->
   <script>
-// Front-end logic for roteiro page: handles UI glue, map interactions and uses firebase.js functions for persistence.
-import { dbSaveUserData, dbOnUserData, getUserId } from './firebase.js';
+    // Basic map init and small logic to ensure map is visible
+    var map;
+    var markers = [];
+    function initMap() { 
+      // set a sensible default center and zoom (Brazil)
+      var center = { lat: -14.235004, lng: -51.92528 };
+      map = new google.maps.Map(document.getElementById('map'), { zoom: 5, center: center });
 
-let map, markers = [], markerData = [], directionsService, directionsRenderer;
-function initMap() {
-  const br = { lat: -27.5, lng: -49.0 };
-  map = new google.maps.Map(document.getElementById('map'), { zoom: 7, center: br });
-  directionsService = new google.maps.DirectionsService();
-  directionsRenderer = new google.maps.DirectionsRenderer({ suppressMarkers: true });
-  directionsRenderer.setMap(map);
+      // Add a temporary marker to show it's working
+      var temp = new google.maps.Marker({ position: center, map: map, title: 'Início' });
+      markers.push(temp);
 
-  map.addListener('click', (e) => { 
-    const name = prompt('Nome para esse local:', 'Ponto de interesse') || 'Ponto';
-    const lat = e.latLng.lat(); const lng = e.latLng.lng();
-    addLocal({ name, lat, lng, favorite:false, cost:0 });
-  });
+      // Click to add a marker (quick test)
+      map.addListener('click', function(e) { 
+        var name = prompt('Nome para esse local:', 'Ponto de interesse') || 'Ponto';
+        var pos = e.latLng;
+        var m = new google.maps.Marker({ position: pos, map: map, title: name });
+        markers.push(m);
+      });
 
-  // load persisted data
-  dbOnUserData((data) => { 
-    if(!data) return;
-    markerData = data.locais || [];
-    gastos = data.gastos || [];
-    renderLocais();
-    renderGastos();
-    drawRoute();
-  });
-}
-
-function addLocal(obj) {
-  markerData.push(obj);
-  persist();
-  renderLocais();
-  addMarkerToMap(obj);
-}
-
-function addMarkerToMap(obj) {
-  const position = { lat: obj.lat, lng: obj.lng };
-  const m = new google.maps.Marker({ position, map, title: obj.name });
-  m.addListener('click', ()=>{ 
-    if(confirm('Remover este local?')){ 
-      // remove from markerData
-      markerData = markerData.filter(x=>!(x.lat===obj.lat && x.lng===obj.lng && x.name===obj.name));
-      persist();
-      renderLocais();
-      m.setMap(null);
-      drawRoute();
+      // Wire up autocomplete after maps loaded
+      var input = document.getElementById('place-input');
+      var autocomplete = new google.maps.places.Autocomplete(input);
     }
-  });
-  markers.push(m);
-}
 
-function renderLocais() {
-  // clear existing markers on map
-  markers.forEach(m=>m.setMap(null)); markers = [];
-  // list
-  const ul = document.getElementById('locais-list');
-  ul.innerHTML = '';
-  const select = document.getElementById('g-local');
-  select.innerHTML = '<option value="">(Gasto geral)</option>';
-  markerData.forEach((loc, i) => {
-    const li = document.createElement('li');
-    li.className = 'p-2 border rounded-md flex justify-between items-center';
-    li.innerHTML = `
-      <div class="flex items-center gap-3">
-        <div class="w-8 h-8 rounded-full bg-sky-100 flex items-center justify-center text-sky-700 font-semibold">${i+1}</div>
-        <div><strong>${loc.name}</strong><div class="text-xs text-gray-500">Custo: R$ <span class="loc-cost">${loc.cost||0}</span></div></div>
-      </div>
-      <div class="flex gap-2 items-center">
-        <button data-i="${i}" class="move-up px-2 py-1 text-xs border rounded">▲</button>
-        <button data-i="${i}" class="move-down px-2 py-1 text-xs border rounded">▼</button>
-        <button data-i="${i}" class="fav px-2 py-1 text-xs border rounded ${loc.favorite?'bg-yellow-100':''}">★</button>
-        <button data-i="${i}" class="to-route px-2 py-1 text-xs border rounded">Rota</button>
-      </div>`;
-    ul.appendChild(li);
-    select.appendChild(new Option(loc.name, loc.name));
-  });
-  // add markers on map
-  markerData.forEach(addMarkerToMap);
-  // make list sortable (drag/drop)
-  if(window.Sortable) Sortable.create(ul, { onEnd: (evt)=>{
-    const [moved] = markerData.splice(evt.oldIndex,1);
-    markerData.splice(evt.newIndex,0,moved);
-    persist();
-    renderLocais();
-    drawRoute();
-  }});
-  // attach buttons
-  document.querySelectorAll('.move-up').forEach(b=>b.onclick = (e)=>{
-    const i = parseInt(e.target.dataset.i);
-    if(i<=0) return;
-    const t = markerData[i-1]; markerData[i-1]=markerData[i]; markerData[i]=t;
-    persist(); renderLocais(); drawRoute();
-  });
-  document.querySelectorAll('.move-down').forEach(b=>b.onclick = (e)=>{
-    const i = parseInt(e.target.dataset.i);
-    if(i>=markerData.length-1) return;
-    const t = markerData[i+1]; markerData[i+1]=markerData[i]; markerData[i]=t;
-    persist(); renderLocais(); drawRoute();
-  });
-  document.querySelectorAll('.fav').forEach(b=>b.onclick = (e)=>{
-    const i = parseInt(e.target.dataset.i);
-    markerData[i].favorite = !markerData[i].favorite;
-    persist(); renderLocais(); drawRoute();
-  });
-  document.querySelectorAll('.to-route').forEach(b=>b.onclick = (e)=>{
-    const i = parseInt(e.target.dataset.i);
-    // move this to end of route (or prompt for position)
-    const [it] = markerData.splice(i,1);
-    markerData.push(it);
-    persist(); renderLocais(); drawRoute();
-  });
-}
+    // small guard: if API fails to load, show an error after 6s
+    setTimeout(function(){ if(!window.google || !window.google.maps){ alert('Erro: Google Maps não carregou. Verifique a chave e as APIs habilitadas.'); } }, 6000);
+  </script>
 
-// Expenses handling
-let gastos = [];
-function renderGastos(){
-  const ul = document.getElementById('lista-gastos');
-  ul.innerHTML='';
-  let total = 0;
-  gastos.forEach((g,i)=>{
-    total += parseFloat(g.valor||0);
-    const li = document.createElement('li');
-    li.className='flex justify-between p-2 border rounded-md';
-    li.innerHTML = `<div><strong>${g.local||'(geral)'}:</strong> ${g.desc}</div><div>R$ ${parseFloat(g.valor).toFixed(2)} <button data-i="${i}" class="del text-xs text-red-600">Excluir</button></div>`;
-    ul.appendChild(li);
-  });
-  document.getElementById('total').textContent = 'R$ ' + total.toFixed(2);
-  document.querySelectorAll('.del').forEach(b=>b.onclick=(e)=>{ gastos.splice(parseInt(e.target.dataset.i),1); persist(); renderGastos(); });
-  // transport total uses per-location cost
-  const transport = markerData.reduce((s,loc)=>s + (parseFloat(loc.cost)||0),0);
-  document.getElementById('transport-total').textContent = 'R$ ' + transport.toFixed(2);
-}
+  <!-- Load Google Maps with callback=initMap (global function) -->
+  <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAPkjcgFgdopkeZN0GnvhOc787jrajJnWc&libraries=places&callback=initMap"></script>
 
-document.addEventListener('DOMContentLoaded', ()=>{
-  // place autocomplete
-  const input = document.getElementById('place-input');
-  const ac = new google.maps.places.Autocomplete(input);
-  document.getElementById('add-marker').onclick = ()=>{
-    const place = ac.getPlace();
-    if(place && place.geometry) addLocal({ name: place.name || input.value, lat: place.geometry.location.lat(), lng: place.geometry.location.lng(), favorite:false, cost:0 });
-    else alert('Escolha um resultado da lista ou clique no mapa.');
-  };
-
-  // gastos form
-  const form = document.getElementById('gasto-form');
-  form.addEventListener('submit', (ev)=>{ ev.preventDefault();
-    const local = document.getElementById('g-local').value || null;
-    const desc = document.getElementById('g-desc').value.trim();
-    const valor = parseFloat(document.getElementById('g-valor').value);
-    if(!desc || !valor) return alert('Preencha descrição e valor');
-    gastos.push({ local, desc, valor });
-    persist(); renderGastos(); form.reset();
-  });
-
-  document.getElementById('export-gastos').onclick = ()=>{
-    if(gastos.length===0) return alert('Sem gastos');
-    const csv = ['Local,Descrição,Valor', ...gastos.map(g=>`"${(g.local||'').replace(/"/g,'""')}","${g.desc.replace(/"/g,'""')}",${g.valor}`)].join('\n');
-    const url = URL.createObjectURL(new Blob([csv], { type:'text/csv' }));
-    const a=document.createElement('a'); a.href=url; a.download='gastos.csv'; a.click(); URL.revokeObjectURL(url);
-  };
-
-  document.getElementById('clear-all').onclick = ()=>{ if(confirm('Limpar todos os dados locais e na nuvem?')){ markerData=[]; gastos=[]; persist(); renderLocais(); renderGastos(); drawRoute(); } };
-
-  document.getElementById('calc-route').onclick = ()=> drawRoute();
-
-  // init map after load
-  window.initMap && window.initMap();
-});
-
-function drawRoute(){
-  if(!directionsService) return;
-  if(markerData.length < 2) return; // need at least 2 points for a route
-  const waypts = markerData.slice(1, markerData.length-1).map(m=>({ location: { lat: m.lat, lng: m.lng }, stopover:true }));
-  const request = { origin: { lat: markerData[0].lat, lng: markerData[0].lng }, destination: { lat: markerData[markerData.length-1].lat, lng: markerData[markerData.length-1].lng }, waypoints: waypts, travelMode: 'DRIVING', optimizeWaypoints: false };
-  directionsService.route(request, (result, status) => { 
-    if(status === 'OK'){ directionsRenderer.setDirections(result); 
-      // optionally show distance/time
-      const legs = result.routes[0].legs;
-      let dist = 0, dur=0;
-      legs.forEach(l=>{ dist += l.distance.value; dur += l.duration.value; });
-      // save suggested transport cost (simple example: R$0.5 per km)
-      const km = dist/1000;
-      const suggestedCostPerKm = 0.5;
-      for(let i=0;i<markerData.length;i++) markerData[i].cost = (km * suggestedCostPerKm / markerData.length).toFixed(2);
-      persist();
-      renderLocais();
-      renderGastos();
-    } else { alert('Erro ao gerar rota: '+status); }
-  });
-}
-
-// persistence util
-function persist(){
-  const payload = { locais: markerData, gastos };
-  dbSaveUserData(getUserId(), payload);
-}
-
-// initialize google maps callback after script loads
-window.initMap = initMap;
-</script>
 </body>
 </html>
