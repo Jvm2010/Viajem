@@ -250,6 +250,7 @@
     let places = [];
     let generalExpenses = [];
     let infoWindow;
+    let autocomplete;
     
     // Variáveis para o rastreamento GPS
     let watchId = null;
@@ -320,11 +321,65 @@
 
       infoWindow = new google.maps.InfoWindow();
 
+      // Configurar autocomplete para pesquisa
+      autocomplete = new google.maps.places.Autocomplete(
+        document.getElementById('search'),
+        {
+          types: ['establishment', 'geocode'],
+          fields: ['name', 'geometry', 'formatted_address', 'types']
+        }
+      );
+
+      // Quando um lugar é selecionado no autocomplete
+      autocomplete.addListener('place_changed', onPlaceChanged);
+
       // Carregar dados salvos
       loadData();
       
       // Configurar eventos
       setupEventListeners();
+    }
+
+    // Função chamada quando um lugar é selecionado no autocomplete
+    function onPlaceChanged() {
+      const place = autocomplete.getPlace();
+      
+      if (!place.geometry) {
+        showToast('Local não encontrado. Tente outro termo de busca.', true);
+        return;
+      }
+      
+      // Centralizar o mapa no local encontrado
+      map.setCenter(place.geometry.location);
+      map.setZoom(15);
+      
+      // Preencher automaticamente o nome do local
+      document.getElementById('place-name').value = place.name;
+      
+      // Tentar determinar a categoria automaticamente
+      let category = 'other';
+      if (place.types.includes('park') || place.types.includes('natural_feature')) {
+        category = 'park';
+      } else if (place.types.includes('tourist_attraction') || place.types.includes('point_of_interest')) {
+        category = 'attraction';
+      } else if (place.types.includes('lodging') || place.types.includes('hotel')) {
+        category = 'hotel';
+      } else if (place.types.includes('restaurant') || place.types.includes('food')) {
+        category = 'restaurant';
+      } else if (place.types.includes('museum') || place.types.includes('art_gallery')) {
+        category = 'museum';
+      } else if (place.types.includes('shopping_mall') || place.types.includes('store')) {
+        category = 'shopping';
+      }
+      
+      document.getElementById('place-category').value = category;
+      
+      // Mostrar o endereço completo no campo de pesquisa
+      if (place.formatted_address) {
+        document.getElementById('search').value = place.formatted_address;
+      }
+      
+      showToast('Local encontrado! Preencha os detalhes e adicione.');
     }
 
     // Função para iniciar o rastreamento GPS
@@ -363,6 +418,11 @@
             
             // Atualiza a linha do trajeto percorrido
             updatePathPolyline();
+            
+            // Se houver locais na rota, calcular distância até o próximo
+            if (places.length > 0) {
+              calculateDistanceToNextPlace(pos);
+            }
           },
           (error) => {
             let errorMessage;
@@ -397,20 +457,48 @@
       }
     }
 
+    // Função para calcular distância até o próximo local na rota
+    function calculateDistanceToNextPlace(currentPos) {
+      if (!places || places.length === 0) return;
+      
+      // Encontrar o local mais próximo
+      let closestPlace = null;
+      let minDistance = Infinity;
+      
+      places.forEach(place => {
+        const distance = google.maps.geometry.spherical.computeDistanceBetween(
+          new google.maps.LatLng(currentPos.lat, currentPos.lng),
+          new google.maps.LatLng(place.lat, place.lng)
+        );
+        
+        if (distance < minDistance) {
+          minDistance = distance;
+          closestPlace = place;
+        }
+      });
+      
+      // Mostrar notificação se estiver próximo (menos de 500m)
+      if (minDistance < 500) {
+        showToast(`Você está próximo de ${closestPlace.name} (${Math.round(minDistance)}m)`);
+      }
+    }
+
     // Função para atualizar a linha do trajeto
     function updatePathPolyline() {
       if (pathPolyline) {
         pathPolyline.setMap(null);
       }
       
-      pathPolyline = new google.maps.Polyline({
-        path: pathCoordinates,
-        geodesic: true,
-        strokeColor: '#0ea5e9',
-        strokeOpacity: 1.0,
-        strokeWeight: 4,
-        map: map
-      });
+      if (pathCoordinates.length > 1) {
+        pathPolyline = new google.maps.Polyline({
+          path: pathCoordinates,
+          geodesic: true,
+          strokeColor: '#0ea5e9',
+          strokeOpacity: 1.0,
+          strokeWeight: 4,
+          map: map
+        });
+      }
     }
 
     // Função para parar o rastreamento GPS
@@ -898,7 +986,7 @@
     // Carrega a API do Google Maps de forma assíncrona
     function loadGoogleMaps() {
       const script = document.createElement('script');
-      script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyAPkjcgFgdopkeZN0GnvhOc787jrajJnWc&libraries=places,directions&callback=initMap`;
+      script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyAPkjcgFgdopkeZN0GnvhOc787jrajJnWc&libraries=places,directions,geometry&callback=initMap`;
       script.async = true;
       script.defer = true;
       document.head.appendChild(script);
