@@ -2,6 +2,7 @@ import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebas
 import { 
   getStorage, ref, uploadBytesResumable, getDownloadURL, deleteObject 
 } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js';
+import { getAuth } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
 
 const firebaseConfig = {
   apiKey: "AIzaSyCo85R9Kx5jEj-nJmfxdLHLMkbUaaxnwGg",
@@ -14,10 +15,14 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const storage = getStorage(app);
-const userId = 'joao123'; // Em produção, usar auth.currentUser.uid
+const auth = getAuth(app);
 
-// Upload com monitoramento de progresso
+function getUserId() {
+  return auth.currentUser?.uid || 'anonymous_' + Math.random().toString(36).substring(2, 9);
+}
+
 export async function uploadPhoto(file, onProgress) {
+  const userId = getUserId();
   return new Promise((resolve, reject) => {
     try {
       const storageRef = ref(storage, `users/${userId}/photos/${Date.now()}_${file.name}`);
@@ -36,10 +41,17 @@ export async function uploadPhoto(file, onProgress) {
         async () => {
           try {
             const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-            resolve({
+            
+            const photoData = {
+              id: uploadTask.snapshot.ref.name,
               url: downloadURL,
-              id: uploadTask.snapshot.ref.name
-            });
+              name: file.name,
+              size: file.size,
+              type: file.type,
+              uploadedAt: Date.now()
+            };
+            
+            resolve(photoData);
           } catch (error) {
             reject(error);
           }
@@ -51,20 +63,24 @@ export async function uploadPhoto(file, onProgress) {
   });
 }
 
-// Obter todas as fotos
-export async function getPhotos() {
-  // Nota: Em produção, você precisaria manter um índice no Realtime Database
-  // Esta é uma versão simplificada
-  return Promise.resolve([]);
-}
-
-// Deletar foto
 export async function deletePhoto(photoId) {
+  const userId = getUserId();
   try {
     const photoRef = ref(storage, `users/${userId}/photos/${photoId}`);
     await deleteObject(photoRef);
   } catch (error) {
     console.error("Erro ao deletar foto:", error);
+    throw error;
+  }
+}
+
+export async function getPhotoUrl(photoId) {
+  const userId = getUserId();
+  try {
+    const photoRef = ref(storage, `users/${userId}/photos/${photoId}`);
+    return await getDownloadURL(photoRef);
+  } catch (error) {
+    console.error("Erro ao obter URL da foto:", error);
     throw error;
   }
 }
