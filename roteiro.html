@@ -2,22 +2,23 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
     <title>Roteiro de Viagem Inteligente</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
         body {
             font-family: 'Roboto', sans-serif;
+            background-color: #f0f9ff;
         }
         #map {
-            height: 300px;
+            height: 400px;
             width: 100%;
-            border-radius: 16px;
+            border-radius: 1rem;
         }
-        @media (min-width: 768px) {
+        @media (max-width: 768px) {
             #map {
-                height: 400px;
+                height: 300px;
             }
         }
         .place-item {
@@ -36,15 +37,15 @@
         }
         .toast {
             position: fixed;
-            bottom: 20px;
-            right: 20px;
-            padding: 12px 24px;
-            border-radius: 8px;
+            bottom: 1.5rem;
+            right: 1.5rem;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
             color: white;
             background-color: #0ea5e9;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
             z-index: 1000;
-            transition: opacity 0.3s ease;
+            transition: all 0.3s ease;
         }
         .toast.error {
             background-color: #dc2626;
@@ -57,247 +58,258 @@
             50% { transform: scale(1.05); }
             100% { transform: scale(1); }
         }
-        .loading-spinner {
-            border: 4px solid rgba(0, 0, 0, 0.1);
-            border-radius: 50%;
-            border-top: 4px solid #0ea5e9;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
+        .gm-style .gm-style-iw-c {
+            padding: 0 !important;
+            border-radius: 0.5rem !important;
         }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+        .gm-style .gm-style-iw-d {
+            overflow: hidden !important;
         }
     </style>
 </head>
 <body class="bg-gray-50">
     <!-- Cabeçalho -->
-    <header class="bg-white shadow-sm sticky top-0 z-10">
+    <header class="bg-white shadow-sm sticky top-0 z-50">
         <div class="container mx-auto px-4 py-3 flex justify-between items-center">
-            <h1 class="text-2xl font-bold text-blue-700">Roteiro de Viagem</h1>
+            <h1 class="text-2xl font-bold text-blue-800">Roteiro de Viagem</h1>
             <nav class="flex gap-4">
                 <button id="export-btn" class="text-blue-600 font-medium hover:text-blue-800">Exportar</button>
-                <button id="import-btn" class="text-blue-600 font-medium hover:text-blue-800">Importar</button>
+                <button id="help-btn" class="text-gray-500 hover:text-gray-700">Ajuda</button>
             </nav>
         </div>
     </header>
 
-    <main class="container mx-auto px-4 py-6 max-w-3xl">
-        <!-- Configurações do Veículo -->
-        <div class="card bg-white p-4 mb-6 shadow-md rounded-xl">
-            <h2 class="text-lg font-semibold text-gray-800 mb-3">Configurações do Veículo</h2>
-            <div class="grid grid-cols-2 gap-4">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Consumo (km/l)</label>
-                    <input id="fuel-efficiency" type="number" min="1" value="10" class="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-300">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Preço do Combustível (R$/l)</label>
-                    <input id="fuel-price" type="number" min="0.1" step="0.01" value="5.50" class="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-300">
+    <main class="container mx-auto px-4 py-6 max-w-4xl">
+        <!-- Seção do Mapa -->
+        <section class="card bg-white p-4 mb-6 shadow-md rounded-xl">
+            <div class="flex justify-between items-center mb-3">
+                <h2 class="text-lg font-semibold text-blue-800">Mapa da Viagem</h2>
+                <div class="flex items-center space-x-2">
+                    <span id="gps-status" class="text-xs bg-gray-100 px-2 py-1 rounded-full hidden">
+                        <span class="inline-block w-2 h-2 rounded-full bg-gray-400 mr-1"></span>
+                        GPS Desconectado
+                    </span>
                 </div>
             </div>
-        </div>
-
-        <!-- Mapa Google -->
-        <div class="card bg-white p-4 mb-6 shadow-md rounded-xl">
-            <h2 class="text-lg font-semibold text-gray-800 mb-3">Mapa da Viagem</h2>
-            <div id="map-container" class="relative">
-                <div id="map-loading" class="absolute inset-0 flex items-center justify-center bg-gray-100 bg-opacity-50 z-10">
-                    <div class="loading-spinner"></div>
-                </div>
-                <div id="map" class="w-full"></div>
-            </div>
-            <div class="flex justify-between mt-3">
-                <div>
-                    <button id="start-trip" class="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition mr-2">
+            <div id="map" class="mb-3"></div>
+            <div class="flex flex-wrap justify-between gap-2">
+                <div class="flex space-x-2">
+                    <button id="start-trip" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition flex items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd" />
+                        </svg>
                         Iniciar Viagem
                     </button>
-                    <button id="optimize-route" class="bg-blue-100 text-blue-700 px-4 py-2 rounded-lg font-medium hover:bg-blue-200 transition">
+                    <button id="optimize-route" class="bg-blue-100 text-blue-700 px-4 py-2 rounded-lg font-medium hover:bg-blue-200 transition flex items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd" />
+                        </svg>
                         Otimizar Rota
                     </button>
                 </div>
-                <button id="clear-route" class="text-red-500 px-4 py-2 rounded-lg border border-red-200 hover:bg-red-50 transition">
+                <button id="clear-route" class="text-red-600 hover:text-red-800 px-4 py-2 rounded-lg border border-red-200 hover:bg-red-50 transition flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
+                    </svg>
                     Limpar Tudo
                 </button>
             </div>
-        </div>
+        </section>
 
-        <!-- Adicionar Local -->
-        <div class="card bg-white p-5 mb-6 shadow-md rounded-xl">
-            <h2 class="text-lg font-semibold text-gray-800 mb-4">Adicionar Local</h2>
-            <div class="space-y-4">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Pesquisar local...</label>
-                    <div class="relative">
-                        <input id="search" type="text" class="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-300 focus:border-blue-300" placeholder="Digite o nome de um local">
-                        <button id="btn-search" class="absolute right-2 top-2 bg-blue-500 text-white p-2 rounded-lg hover:bg-blue-600">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                                <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" />
-                            </svg>
-                        </button>
-                    </div>
-                </div>
-                
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <!-- Seção de Configurações -->
+        <section class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <!-- Configurações do Veículo -->
+            <div class="card bg-white p-5 shadow-md rounded-xl">
+                <h2 class="text-lg font-semibold text-blue-800 mb-4">Configurações do Veículo</h2>
+                <div class="space-y-4">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Nome do Local</label>
-                        <input id="place-name" class="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-300">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Consumo (km/l)</label>
+                        <input id="fuel-efficiency" type="number" min="1" value="10" class="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-300 focus:border-blue-300">
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Custo (R$)</label>
-                        <input id="place-value" type="number" min="0" step="0.01" class="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-300">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Preço do Combustível (R$/l)</label>
+                        <input id="fuel-price" type="number" min="0.1" step="0.01" value="5.50" class="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-300 focus:border-blue-300">
                     </div>
                 </div>
+            </div>
 
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Categoria</label>
-                    <select id="place-category" class="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-300">
-                        <option value="attraction">Atração Turística</option>
-                        <option value="park">Parque/Natureza</option>
-                        <option value="hotel">Hotel/Hospedagem</option>
-                        <option value="restaurant">Restaurante</option>
-                        <option value="museum">Museu/Cultural</option>
-                        <option value="shopping">Compras</option>
-                        <option value="other">Outro</option>
-                    </select>
-                </div>
-                
-                <button id="add-place" class="w-full bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 transition flex items-center justify-center">
-                    <span id="add-place-text">Adicionar Local</span>
-                    <span id="add-place-spinner" class="hidden ml-2">
-                        <svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            <!-- Adicionar Local -->
+            <div class="card bg-white p-5 shadow-md rounded-xl">
+                <h2 class="text-lg font-semibold text-blue-800 mb-4">Adicionar Local</h2>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Pesquisar local...</label>
+                        <div class="relative">
+                            <input id="search" type="text" class="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-300 focus:border-blue-300" placeholder="Digite o nome de um local">
+                            <button id="btn-search" class="absolute right-2 top-2 bg-blue-500 text-white p-2 rounded-lg hover:bg-blue-600">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Nome do Local</label>
+                            <input id="place-name" class="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-300">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Custo (R$)</label>
+                            <input id="place-value" type="number" min="0" step="0.01" class="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-300">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Categoria</label>
+                        <select id="place-category" class="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-300">
+                            <option value="attraction">Atração Turística</option>
+                            <option value="park">Parque/Natureza</option>
+                            <option value="hotel">Hotel/Hospedagem</option>
+                            <option value="restaurant">Restaurante</option>
+                            <option value="museum">Museu/Cultural</option>
+                            <option value="shopping">Compras</option>
+                            <option value="other">Outro</option>
+                        </select>
+                    </div>
+                    
+                    <button id="add-place" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-medium transition flex items-center justify-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z" clip-rule="evenodd" />
                         </svg>
-                    </span>
-                </button>
-            </div>
-        </div>
-
-        <!-- Locais Salvos -->
-        <div class="card bg-white p-5 mb-6 shadow-md rounded-xl">
-            <div class="flex justify-between items-center mb-4">
-                <h2 class="text-lg font-semibold text-gray-800">Locais Salvos</h2>
-                <span id="places-count" class="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded-full">0</span>
-            </div>
-            <div id="places-list" class="space-y-3"></div>
-        </div>
-
-        <!-- Gastos Gerais -->
-        <div class="card bg-white p-5 mb-6 shadow-md rounded-xl">
-            <div class="flex justify-between items-center mb-4">
-                <h2 class="text-lg font-semibold text-gray-800">Gastos Gerais</h2>
-                <span id="expenses-count" class="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded-full">0</span>
-            </div>
-            <div id="expenses-list" class="space-y-3 mb-4"></div>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Descrição</label>
-                    <input id="expense-title" class="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-300">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Valor (R$)</label>
-                    <input id="expense-amount" type="number" min="0" step="0.01" class="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-300">
-                </div>
-                <div class="flex items-end">
-                    <button id="add-expense" class="w-full bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 transition flex items-center justify-center">
-                        <span id="add-expense-text">Adicionar</span>
-                        <span id="add-expense-spinner" class="hidden ml-2">
-                            <svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                            </svg>
-                        </span>
+                        Adicionar Local
                     </button>
                 </div>
             </div>
-        </div>
+        </section>
 
-        <!-- Resumo Completo -->
-        <div class="card bg-white p-5 shadow-md rounded-xl">
-            <h2 class="text-lg font-semibold text-gray-800 mb-4">Resumo da Viagem</h2>
+        <!-- Seção de Conteúdo -->
+        <section class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+            <!-- Locais Salvos -->
+            <div class="card bg-white p-5 shadow-md rounded-xl lg:col-span-2">
+                <h2 class="text-lg font-semibold text-blue-800 mb-4">Locais Salvos</h2>
+                <div id="places-list" class="space-y-3">
+                    <div class="text-center py-8 text-gray-500">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto mb-3 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                        <p>Nenhum local adicionado ainda</p>
+                        <p class="text-sm mt-1">Adicione locais para começar seu roteiro</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Gastos Gerais -->
+            <div class="card bg-white p-5 shadow-md rounded-xl">
+                <h2 class="text-lg font-semibold text-blue-800 mb-4">Gastos Gerais</h2>
+                <div id="expenses-list" class="space-y-3 mb-4">
+                    <div class="text-center py-8 text-gray-500">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto mb-3 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <p>Nenhum gasto adicionado</p>
+                        <p class="text-sm mt-1">Registre seus gastos durante a viagem</p>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Descrição</label>
+                        <input id="expense-title" class="w-full p-3 border border-gray-200 rounded-lg">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Valor (R$)</label>
+                        <input id="expense-amount" type="number" min="0" step="0.01" class="w-full p-3 border border-gray-200 rounded-lg">
+                    </div>
+                    <div class="md:col-span-3">
+                        <button id="add-expense" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-medium transition">
+                            Adicionar Gasto
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Resumo da Viagem -->
+        <section class="card bg-white p-5 shadow-md rounded-xl">
+            <h2 class="text-lg font-semibold text-blue-800 mb-4">Resumo da Viagem</h2>
             
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                <div class="bg-blue-50 p-3 rounded-lg">
+                <div class="bg-blue-50 p-4 rounded-lg">
                     <p class="text-sm text-gray-600">Distância Total</p>
                     <p id="total-distance" class="text-xl font-bold text-blue-700">0 km</p>
                 </div>
-                <div class="bg-blue-50 p-3 rounded-lg">
+                <div class="bg-blue-50 p-4 rounded-lg">
                     <p class="text-sm text-gray-600">Tempo Total</p>
                     <p id="total-time" class="text-xl font-bold text-blue-700">0 min</p>
                 </div>
-                <div class="bg-blue-50 p-3 rounded-lg">
+                <div class="bg-blue-50 p-4 rounded-lg">
                     <p class="text-sm text-gray-600">Custo de Combustível</p>
                     <p id="fuel-cost" class="text-xl font-bold text-blue-700">R$ 0,00</p>
                 </div>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                <div class="bg-blue-50 p-3 rounded-lg">
+                <div class="bg-blue-50 p-4 rounded-lg">
                     <p class="text-sm text-gray-600">Custo dos Locais</p>
                     <p id="places-cost" class="text-xl font-bold text-blue-700">R$ 0,00</p>
                 </div>
-                <div class="bg-blue-50 p-3 rounded-lg">
+                <div class="bg-blue-50 p-4 rounded-lg">
                     <p class="text-sm text-gray-600">Gastos Gerais</p>
                     <p id="expenses-cost" class="text-xl font-bold text-blue-700">R$ 0,00</p>
                 </div>
-                <div class="bg-blue-50 p-3 rounded-lg">
-                    <p class="text-sm text-gray-600">Custo Total</p>
-                    <p id="total-cost" class="text-xl font-bold text-blue-700">R$ 0,00</p>
+                <div class="bg-blue-50 p-4 rounded-lg border-2 border-blue-200">
+                    <p class="text-sm text-gray-600">Custo Total Estimado</p>
+                    <p id="total-cost" class="text-2xl font-bold text-blue-800">R$ 0,00</p>
                 </div>
             </div>
 
             <div id="route-details" class="space-y-2">
                 <!-- Detalhes da rota serão inseridos aqui -->
             </div>
-        </div>
+        </section>
     </main>
 
-    <!-- Modal para Importar/Exportar -->
-    <div id="data-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
-        <div class="bg-white rounded-lg p-6 max-w-md w-full">
+    <!-- Modal de Ajuda -->
+    <div id="help-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
             <div class="flex justify-between items-center mb-4">
-                <h3 class="text-lg font-semibold text-gray-800" id="modal-title">Exportar Roteiro</h3>
-                <button id="close-modal" class="text-gray-500 hover:text-gray-700">
+                <h3 class="text-xl font-bold text-blue-800">Ajuda - Roteiro de Viagem</h3>
+                <button id="close-help" class="text-gray-500 hover:text-gray-700">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                     </svg>
                 </button>
             </div>
-            <div id="modal-content">
-                <textarea id="data-json" class="w-full h-40 p-3 border border-gray-200 rounded-lg mb-4 font-mono text-sm" placeholder="Cole aqui o JSON para importar"></textarea>
-                <div class="flex justify-end gap-2">
-                    <button id="copy-btn" class="px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200">Copiar</button>
-                    <button id="save-btn" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Salvar</button>
+            <div class="space-y-4 text-sm text-gray-700">
+                <div>
+                    <h4 class="font-semibold text-blue-700">Como adicionar locais:</h4>
+                    <p>1. Pesquise pelo local no campo "Pesquisar local"</p>
+                    <p>2. Preencha os detalhes (nome, custo, categoria)</p>
+                    <p>3. Clique em "Adicionar Local"</p>
+                </div>
+                <div>
+                    <h4 class="font-semibold text-blue-700">Rastreamento GPS:</h4>
+                    <p>• Clique em "Iniciar Viagem" para começar a registrar seu trajeto</p>
+                    <p>• Sua posição será mostrada no mapa em tempo real</p>
+                    <p>• O trajeto percorrido será desenhado no mapa</p>
+                </div>
+                <div>
+                    <h4 class="font-semibold text-blue-700">Otimização de Rota:</h4>
+                    <p>• Adicione pelo menos 2 locais</p>
+                    <p>• Clique em "Otimizar Rota" para calcular o melhor caminho</p>
+                </div>
+                <div>
+                    <h4 class="font-semibold text-blue-700">Dicas:</h4>
+                    <p>• Atualize as configurações do veículo para cálculos precisos</p>
+                    <p>• Registre todos os gastos para ter um controle financeiro</p>
+                    <p>• Exporte seu roteiro para compartilhar ou salvar</p>
                 </div>
             </div>
         </div>
     </div>
 
     <script>
-        // Configuração do Tailwind
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        travel: {
-                            50: '#f0f9ff',
-                            100: '#e0f2fe',
-                            200: '#bae6fd',
-                            300: '#7dd3fc',
-                            400: '#38bdf8',
-                            500: '#0ea5e9',
-                            600: '#0284c7',
-                            700: '#0369a1',
-                            800: '#075985',
-                            900: '#0c4a6e',
-                        }
-                    }
-                }
-            }
-        };
-
         // Variáveis globais
         let map;
         let directionsService;
@@ -345,133 +357,13 @@
             }, 3000);
         }
 
-        // Função para mostrar/ocultar loading
-        function toggleLoading(element, show) {
-            const spinner = element.querySelector('span:last-child');
-            const text = element.querySelector('span:first-child');
-            
-            if (show) {
-                text.classList.add('hidden');
-                spinner.classList.remove('hidden');
-                element.disabled = true;
-            } else {
-                text.classList.remove('hidden');
-                spinner.classList.add('hidden');
-                element.disabled = false;
-            }
-        }
-
-        // Função para iniciar o rastreamento GPS
-        function startGPSTracking() {
-            if (navigator.geolocation) {
-                showToast('Iniciando rastreamento GPS...');
-                
-                isTracking = true;
-                document.getElementById('start-trip').classList.add('pulse-animation');
-                
-                watchId = navigator.geolocation.watchPosition(
-                    (position) => {
-                        const pos = {
-                            lat: position.coords.latitude,
-                            lng: position.coords.longitude
-                        };
-                        
-                        // Atualiza ou cria o marcador da posição atual
-                        if (!currentPositionMarker) {
-                            currentPositionMarker = new google.maps.Marker({
-                                position: pos,
-                                map: map,
-                                icon: currentPositionIcon,
-                                title: 'Sua posição atual',
-                                zIndex: 1000
-                            });
-                        } else {
-                            currentPositionMarker.setPosition(pos);
-                        }
-                        
-                        // Centraliza o mapa na posição atual (apenas no primeiro movimento)
-                        if (pathCoordinates.length === 0) {
-                            map.setCenter(pos);
-                            map.setZoom(15);
-                        }
-                        
-                        // Adiciona a posição ao histórico do trajeto
-                        pathCoordinates.push(pos);
-                        
-                        // Atualiza a linha do trajeto percorrido
-                        updatePathPolyline();
-                    },
-                    (error) => {
-                        let errorMessage;
-                        switch(error.code) {
-                            case error.PERMISSION_DENIED:
-                                errorMessage = "Permissão de localização negada. Ative no navegador.";
-                                break;
-                            case error.POSITION_UNAVAILABLE:
-                                errorMessage = "Informação de localização indisponível.";
-                                break;
-                            case error.TIMEOUT:
-                                errorMessage = "Tempo de espera para localização expirado.";
-                                break;
-                            default:
-                                errorMessage = "Erro desconhecido no GPS.";
-                        }
-                        showToast(errorMessage, true);
-                        stopGPSTracking();
-                    },
-                    {
-                        enableHighAccuracy: true,
-                        maximumAge: 30000,
-                        timeout: 27000
-                    }
-                );
-                
-                document.getElementById('start-trip').textContent = 'Parar Rastreamento';
-                document.getElementById('start-trip').classList.remove('bg-blue-600');
-                document.getElementById('start-trip').classList.add('bg-red-600');
-            } else {
-                showToast('Geolocalização não é suportada por este navegador.', true);
-            }
-        }
-
-        // Função para atualizar a linha do trajeto
-        function updatePathPolyline() {
-            if (pathPolyline) {
-                pathPolyline.setMap(null);
-            }
-            
-            pathPolyline = new google.maps.Polyline({
-                path: pathCoordinates,
-                geodesic: true,
-                strokeColor: '#0ea5e9',
-                strokeOpacity: 1.0,
-                strokeWeight: 4,
-                map: map
-            });
-        }
-
-        // Função para parar o rastreamento GPS
-        function stopGPSTracking() {
-            if (watchId) {
-                navigator.geolocation.clearWatch(watchId);
-                watchId = null;
-            }
-            
-            isTracking = false;
-            document.getElementById('start-trip').textContent = 'Iniciar Viagem';
-            document.getElementById('start-trip').classList.add('bg-blue-600');
-            document.getElementById('start-trip').classList.remove('bg-red-600', 'pulse-animation');
-        }
-
         // Inicialização do mapa
         function initMap() {
-            document.getElementById('map-loading').classList.remove('hidden');
-            
-            // Configuração padrão do mapa (Brasil)
-            const defaultPosition = { lat: -15.795, lng: -47.891 };
+            // Configuração inicial do mapa
+            const initialLocation = { lat: -15.795, lng: -47.891 };
             
             map = new google.maps.Map(document.getElementById('map'), {
-                center: defaultPosition,
+                center: initialLocation,
                 zoom: 4,
                 styles: [
                     {
@@ -486,11 +378,12 @@
                     }
                 ],
                 gestureHandling: "greedy",
-                fullscreenControl: false,
-                streetViewControl: false,
-                mapTypeControl: false
+                disableDefaultUI: true,
+                zoomControl: true,
+                fullscreenControl: true
             });
 
+            // Serviços do Google Maps
             directionsService = new google.maps.DirectionsService();
             directionsRenderer = new google.maps.DirectionsRenderer({
                 map: map,
@@ -502,37 +395,194 @@
                 }
             });
 
-            infoWindow = new google.maps.InfoWindow();
-
-            // Verifica se há geolocalização disponível
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(
-                    (position) => {
-                        const pos = {
-                            lat: position.coords.latitude,
-                            lng: position.coords.longitude
-                        };
-                        map.setCenter(pos);
-                        map.setZoom(12);
-                        document.getElementById('map-loading').classList.add('hidden');
-                    },
-                    () => {
-                        // Se não conseguir a localização, usa a posição padrão
-                        map.setCenter(defaultPosition);
-                        document.getElementById('map-loading').classList.add('hidden');
-                    }
-                );
-            } else {
-                // Navegador não suporta Geolocalização
-                map.setCenter(defaultPosition);
-                document.getElementById('map-loading').classList.add('hidden');
-            }
+            // Janela de informações
+            infoWindow = new google.maps.InfoWindow({
+                maxWidth: 250
+            });
 
             // Carregar dados salvos
             loadData();
             
             // Configurar eventos
             setupEventListeners();
+            
+            // Verificar suporte a geolocalização
+            checkGeolocationSupport();
+        }
+
+        // Verificar suporte a geolocalização
+        function checkGeolocationSupport() {
+            if (!navigator.geolocation) {
+                showToast('Seu navegador não suporta geolocalização', true);
+                document.getElementById('start-trip').disabled = true;
+                document.getElementById('start-trip').classList.add('opacity-50', 'cursor-not-allowed');
+            }
+        }
+
+        // Função para iniciar o rastreamento GPS
+        function startGPSTracking() {
+            if (!navigator.geolocation) {
+                showToast('Geolocalização não suportada neste navegador', true);
+                return;
+            }
+
+            showToast('Iniciando rastreamento GPS...');
+            
+            // Atualizar estado
+            isTracking = true;
+            updateGPSTrackingUI(true);
+            
+            // Configurações do GPS
+            const options = {
+                enableHighAccuracy: true,
+                maximumAge: 10000,
+                timeout: 15000
+            };
+
+            watchId = navigator.geolocation.watchPosition(
+                (position) => handlePositionSuccess(position),
+                (error) => handlePositionError(error),
+                options
+            );
+        }
+
+        // Manipulador de sucesso na geolocalização
+        function handlePositionSuccess(position) {
+            const pos = {
+                lat: position.coords.latitude,
+                lng: position.coords.longitude
+            };
+            
+            // Precisão em metros
+            const accuracy = position.coords.accuracy;
+            
+            // Atualiza ou cria o marcador da posição atual
+            if (!currentPositionMarker) {
+                currentPositionMarker = new google.maps.Marker({
+                    position: pos,
+                    map: map,
+                    icon: currentPositionIcon,
+                    title: 'Sua posição atual',
+                    zIndex: 1000,
+                    optimized: false
+                });
+                
+                // Centraliza o mapa na posição atual (apenas no primeiro movimento)
+                map.setCenter(pos);
+                map.setZoom(15);
+            } else {
+                currentPositionMarker.setPosition(pos);
+            }
+            
+            // Adiciona a posição ao histórico do trajeto
+            pathCoordinates.push(pos);
+            
+            // Atualiza a linha do trajeto percorrido
+            updatePathPolyline();
+            
+            // Atualiza o status do GPS
+            updateGPSStatus(true, accuracy);
+        }
+
+        // Manipulador de erro na geolocalização
+        function handlePositionError(error) {
+            let errorMessage;
+            switch(error.code) {
+                case error.PERMISSION_DENIED:
+                    errorMessage = "Permissão de localização negada. Por favor, habilite no seu navegador.";
+                    break;
+                case error.POSITION_UNAVAILABLE:
+                    errorMessage = "Informação de localização indisponível.";
+                    break;
+                case error.TIMEOUT:
+                    errorMessage = "Tempo de espera para obter localização expirado.";
+                    break;
+                default:
+                    errorMessage = "Erro desconhecido ao obter localização.";
+            }
+            
+            showToast(errorMessage, true);
+            stopGPSTracking();
+            updateGPSStatus(false);
+        }
+
+        // Atualiza a linha do trajeto percorrido
+        function updatePathPolyline() {
+            if (pathPolyline) {
+                pathPolyline.setMap(null);
+            }
+            
+            if (pathCoordinates.length > 1) {
+                pathPolyline = new google.maps.Polyline({
+                    path: pathCoordinates,
+                    geodesic: true,
+                    strokeColor: '#0ea5e9',
+                    strokeOpacity: 1.0,
+                    strokeWeight: 4,
+                    map: map,
+                    zIndex: 10
+                });
+            }
+        }
+
+        // Atualiza a UI do rastreamento
+        function updateGPSTrackingUI(isTracking) {
+            const btn = document.getElementById('start-trip');
+            
+            if (isTracking) {
+                btn.innerHTML = `
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd" />
+                    </svg>
+                    Parar Rastreamento
+                `;
+                btn.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+                btn.classList.add('bg-red-600', 'hover:bg-red-700', 'pulse-animation');
+            } else {
+                btn.innerHTML = `
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd" />
+                    </svg>
+                    Iniciar Viagem
+                `;
+                btn.classList.add('bg-blue-600', 'hover:bg-blue-700');
+                btn.classList.remove('bg-red-600', 'hover:bg-red-700', 'pulse-animation');
+            }
+        }
+
+        // Atualiza o status do GPS na UI
+        function updateGPSStatus(isActive, accuracy = null) {
+            const statusElement = document.getElementById('gps-status');
+            const statusDot = statusElement.querySelector('span:first-child');
+            
+            if (isActive) {
+                statusElement.classList.remove('hidden');
+                statusDot.classList.remove('bg-gray-400');
+                statusDot.classList.add('bg-green-500');
+                
+                let statusText = 'GPS Ativo';
+                if (accuracy) {
+                    statusText += ` (Precisão: ~${Math.round(accuracy)}m)`;
+                }
+                
+                statusElement.querySelector('span:last-child').textContent = statusText;
+            } else {
+                statusElement.classList.add('hidden');
+                statusDot.classList.add('bg-gray-400');
+                statusDot.classList.remove('bg-green-500');
+            }
+        }
+
+        // Função para parar o rastreamento GPS
+        function stopGPSTracking() {
+            if (watchId) {
+                navigator.geolocation.clearWatch(watchId);
+                watchId = null;
+            }
+            
+            isTracking = false;
+            updateGPSTrackingUI(false);
+            updateGPSStatus(false);
         }
 
         // Carregar dados do localStorage
@@ -540,14 +590,19 @@
             try {
                 const savedPlaces = localStorage.getItem('travel_places');
                 const savedExpenses = localStorage.getItem('travel_expenses');
+                const savedTracking = localStorage.getItem('travel_tracking');
                 
                 if (savedPlaces) places = JSON.parse(savedPlaces);
                 if (savedExpenses) generalExpenses = JSON.parse(savedExpenses);
                 
+                // Restaurar rastreamento se estava ativo
+                if (savedTracking === 'active') {
+                    startGPSTracking();
+                }
+                
                 renderPlaces();
                 renderExpenses();
                 updateRoute();
-                updateCounters();
             } catch (error) {
                 console.error('Erro ao carregar dados:', error);
                 showToast('Erro ao carregar dados salvos', true);
@@ -559,26 +614,32 @@
             try {
                 localStorage.setItem('travel_places', JSON.stringify(places));
                 localStorage.setItem('travel_expenses', JSON.stringify(generalExpenses));
+                localStorage.setItem('travel_tracking', isTracking ? 'active' : 'inactive');
             } catch (error) {
                 console.error('Erro ao salvar dados:', error);
-                showToast('Erro ao salvar dados', true);
             }
-        }
-
-        // Atualizar contadores
-        function updateCounters() {
-            document.getElementById('places-count').textContent = places.length;
-            document.getElementById('expenses-count').textContent = generalExpenses.length;
         }
 
         // Renderizar lista de locais
         function renderPlaces() {
             const container = document.getElementById('places-list');
-            container.innerHTML = '';
-
+            
+            // Limpar container
+            while (container.firstChild) {
+                container.removeChild(container.firstChild);
+            }
+            
             if (places.length === 0) {
-                container.innerHTML = '<div class="text-center py-4 text-gray-500">Nenhum local adicionado ainda</div>';
-                updateCounters();
+                container.innerHTML = `
+                    <div class="text-center py-8 text-gray-500">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto mb-3 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                        <p>Nenhum local adicionado ainda</p>
+                        <p class="text-sm mt-1">Adicione locais para começar seu roteiro</p>
+                    </div>
+                `;
                 return;
             }
 
@@ -591,7 +652,7 @@
                     <div class="flex justify-between items-start">
                         <div>
                             <div class="flex items-center gap-2">
-                                <h3 class="font-semibold text-gray-800">${place.name}</h3>
+                                <h3 class="font-semibold text-blue-800">${place.name}</h3>
                                 <span class="category-badge" style="background-color: ${category.color}20; color: ${category.color}800">
                                     ${category.name}
                                 </span>
@@ -600,17 +661,17 @@
                             ${place.address ? `<p class="text-xs text-gray-500 mt-1">${place.address}</p>` : ''}
                         </div>
                         <div class="flex gap-2">
-                            <button data-index="${index}" class="move-up text-blue-600 hover:text-blue-800 p-1">
+                            <button data-index="${index}" class="move-up text-blue-600 hover:text-blue-800 p-1" title="Mover para cima">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                                     <path fill-rule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clip-rule="evenodd" />
                                 </svg>
                             </button>
-                            <button data-index="${index}" class="move-down text-blue-600 hover:text-blue-800 p-1">
+                            <button data-index="${index}" class="move-down text-blue-600 hover:text-blue-800 p-1" title="Mover para baixo">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                                     <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
                                 </svg>
                             </button>
-                            <button data-index="${index}" class="delete-place text-red-500 hover:text-red-700 p-1">
+                            <button data-index="${index}" class="delete-place text-red-500 hover:text-red-700 p-1" title="Remover local">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                                     <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
                                 </svg>
@@ -622,17 +683,27 @@
             });
 
             updateStats();
-            updateCounters();
         }
 
         // Renderizar gastos gerais
         function renderExpenses() {
             const container = document.getElementById('expenses-list');
-            container.innerHTML = '';
+            
+            // Limpar container
+            while (container.firstChild) {
+                container.removeChild(container.firstChild);
+            }
 
             if (generalExpenses.length === 0) {
-                container.innerHTML = '<div class="text-center py-4 text-gray-500">Nenhum gasto geral adicionado</div>';
-                updateCounters();
+                container.innerHTML = `
+                    <div class="text-center py-8 text-gray-500">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto mb-3 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <p>Nenhum gasto adicionado</p>
+                        <p class="text-sm mt-1">Registre seus gastos durante a viagem</p>
+                    </div>
+                `;
                 return;
             }
 
@@ -642,11 +713,11 @@
                 div.innerHTML = `
                     <div>
                         <p class="font-medium">${expense.title}</p>
-                        <p class="text-xs text-gray-500">${new Date(expense.date).toLocaleDateString()}</p>
+                        <p class="text-xs text-gray-500">${new Date(expense.date).toLocaleDateString('pt-BR')}</p>
                     </div>
                     <div class="flex items-center gap-2">
                         <p class="font-medium">R$ ${expense.amount.toFixed(2)}</p>
-                        <button data-index="${index}" class="text-red-500 hover:text-red-700">
+                        <button data-index="${index}" class="text-red-500 hover:text-red-700" title="Remover gasto">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                                 <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
                             </svg>
@@ -657,7 +728,6 @@
             });
 
             updateStats();
-            updateCounters();
         }
 
         // Atualizar rota no mapa
@@ -689,17 +759,19 @@
                         url: category.icon,
                         scaledSize: new google.maps.Size(40, 40),
                         labelOrigin: new google.maps.Point(20, 13)
-                    }
+                    },
+                    optimized: true
                 });
 
                 // InfoWindow ao clicar no marcador
                 marker.addListener('click', () => {
                     infoWindow.setContent(`
-                        <div class="p-2">
-                            <h3 class="font-bold text-lg">${place.name}</h3>
+                        <div class="p-3">
+                            <h3 class="font-bold text-lg text-blue-800">${place.name}</h3>
                             <p class="text-sm ${category.color}-600 mb-1">${category.name}</p>
-                            ${place.value ? `<p class="text-blue-600">Custo: R$ ${place.value.toFixed(2)}</p>` : ''}
+                            ${place.value ? `<p class="text-blue-600 font-medium">Custo: R$ ${place.value.toFixed(2)}</p>` : ''}
                             ${place.address ? `<p class="text-sm text-gray-600 mt-1">${place.address}</p>` : ''}
+                            <p class="text-xs text-gray-500 mt-2">${new Date(place.date).toLocaleString('pt-BR')}</p>
                         </div>
                     `);
                     infoWindow.open(map, marker);
@@ -730,7 +802,11 @@
                     waypoints: waypoints,
                     travelMode: 'DRIVING',
                     optimizeWaypoints: true,
-                    provideRouteAlternatives: false
+                    provideRouteAlternatives: false,
+                    drivingOptions: {
+                        departureTime: new Date(Date.now() + 1000 * 60 * 60), // 1 hora no futuro
+                        trafficModel: 'bestguess'
+                    }
                 };
 
                 directionsService.route(request, (result, status) => {
@@ -743,7 +819,11 @@
                             bounds.extend(leg.start_location);
                             bounds.extend(leg.end_location);
                         });
-                        map.fitBounds(bounds);
+                        
+                        // Não redimensionar se estiver em modo de rastreamento
+                        if (!isTracking) {
+                            map.fitBounds(bounds);
+                        }
                         
                         updateStats(result);
                         renderRouteDetails(result);
@@ -758,8 +838,17 @@
         // Renderizar detalhes da rota
         function renderRouteDetails(routeResult) {
             const container = document.getElementById('route-details');
-            container.innerHTML = '<h3 class="font-semibold mb-2">Detalhes do Percurso:</h3>';
             
+            // Limpar container
+            while (container.firstChild) {
+                container.removeChild(container.firstChild);
+            }
+            
+            const title = document.createElement('h3');
+            title.className = 'font-semibold mb-2 text-blue-800';
+            title.textContent = 'Detalhes do Percurso:';
+            container.appendChild(title);
+
             routeResult.routes[0].legs.forEach((leg, index) => {
                 const fromPlace = places[index];
                 const toPlace = places[index + 1];
@@ -780,7 +869,7 @@
         }
 
         // Atualizar estatísticas
-        function updateStats(routeResult) {
+        function updateStats(routeResult = null) {
             // Calcular custo dos locais
             const placesCost = places.reduce((sum, place) => sum + (place.value || 0), 0);
             document.getElementById('places-cost').textContent = `R$ ${placesCost.toFixed(2)}`;
@@ -799,13 +888,13 @@
                     totalDistance += leg.distance.value;
                     totalTime += leg.duration.value;
                 });
-                
-                // Calcular custo do combustível
-                const fuelEfficiency = parseFloat(document.getElementById('fuel-efficiency').value) || 10;
-                const fuelPrice = parseFloat(document.getElementById('fuel-price').value) || 5.50;
-                const fuelConsumption = (totalDistance / 1000) / fuelEfficiency;
-                fuelCost = fuelConsumption * fuelPrice;
             }
+            
+            // Calcular custo do combustível
+            const fuelEfficiency = parseFloat(document.getElementById('fuel-efficiency').value) || 10;
+            const fuelPrice = parseFloat(document.getElementById('fuel-price').value) || 5.50;
+            const fuelConsumption = (totalDistance / 1000) / fuelEfficiency;
+            fuelCost = fuelConsumption * fuelPrice;
             
             document.getElementById('total-distance').textContent = `${(totalDistance / 1000).toFixed(1)} km`;
             
@@ -824,56 +913,38 @@
             document.getElementById('total-cost').textContent = `R$ ${totalCost.toFixed(2)}`;
         }
 
-        // Exportar dados para JSON
-        function exportData() {
+        // Exportar dados da viagem
+        function exportTripData() {
             const data = {
-                places,
-                generalExpenses,
-                vehicleSettings: {
+                metadata: {
+                    title: "Roteiro de Viagem",
+                    date: new Date().toISOString(),
+                    version: "1.0"
+                },
+                settings: {
                     fuelEfficiency: parseFloat(document.getElementById('fuel-efficiency').value) || 10,
                     fuelPrice: parseFloat(document.getElementById('fuel-price').value) || 5.50
                 },
+                places: places,
+                expenses: generalExpenses,
                 summary: {
                     totalDistance: document.getElementById('total-distance').textContent,
                     totalTime: document.getElementById('total-time').textContent,
                     totalCost: document.getElementById('total-cost').textContent
-                },
-                gpsTracking: isTracking ? {
-                    pathCoordinates,
-                    currentPosition: currentPositionMarker ? currentPositionMarker.getPosition().toJSON() : null
-                } : null,
-                version: '1.0',
-                exportedAt: new Date().toISOString()
+                }
             };
             
-            return JSON.stringify(data, null, 2);
-        }
-
-        // Importar dados de JSON
-        function importData(jsonString) {
-            try {
-                const data = JSON.parse(jsonString);
-                
-                if (data.places) places = data.places;
-                if (data.generalExpenses) generalExpenses = data.generalExpenses;
-                
-                if (data.vehicleSettings) {
-                    document.getElementById('fuel-efficiency').value = data.vehicleSettings.fuelEfficiency || 10;
-                    document.getElementById('fuel-price').value = data.vehicleSettings.fuelPrice || 5.50;
-                }
-                
-                saveData();
-                renderPlaces();
-                renderExpenses();
-                updateRoute();
-                
-                showToast('Dados importados com sucesso!');
-                return true;
-            } catch (error) {
-                console.error('Erro ao importar dados:', error);
-                showToast('Erro ao importar dados. Verifique o formato.', true);
-                return false;
-            }
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `roteiro-viagem-${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            
+            showToast('Roteiro exportado com sucesso!');
         }
 
         // Configurar event listeners
@@ -913,55 +984,9 @@
             });
 
             // Pesquisar local
-            document.getElementById('btn-search').addEventListener('click', () => {
-                const query = document.getElementById('search').value.trim();
-                if (!query) {
-                    showToast('Digite um local para pesquisar', true);
-                    return;
-                }
-
-                const request = {
-                    query,
-                    fields: ['name', 'geometry', 'formatted_address', 'types']
-                };
-
-                const service = new google.maps.places.PlacesService(map);
-                service.findPlaceFromQuery(request, (results, status) => {
-                    if (status === 'OK' && results[0]) {
-                        const place = results[0];
-                        map.setCenter(place.geometry.location);
-                        
-                        // Preencher automaticamente o nome do local
-                        document.getElementById('place-name').value = place.name;
-                        
-                        // Tentar determinar a categoria automaticamente
-                        let category = 'other';
-                        if (place.types.includes('park') || place.types.includes('natural_feature')) {
-                            category = 'park';
-                        } else if (place.types.includes('tourist_attraction') || place.types.includes('point_of_interest')) {
-                            category = 'attraction';
-                        } else if (place.types.includes('lodging') || place.types.includes('hotel')) {
-                            category = 'hotel';
-                        } else if (place.types.includes('restaurant') || place.types.includes('food')) {
-                            category = 'restaurant';
-                        } else if (place.types.includes('museum') || place.types.includes('art_gallery')) {
-                            category = 'museum';
-                        } else if (place.types.includes('shopping_mall') || place.types.includes('store')) {
-                            category = 'shopping';
-                        }
-                        
-                        document.getElementById('place-category').value = category;
-                        
-                        // Mostrar o endereço completo no campo de pesquisa
-                        if (place.formatted_address) {
-                            document.getElementById('search').value = place.formatted_address;
-                        }
-                        
-                        showToast('Local encontrado! Preencha os detalhes e adicione.');
-                    } else {
-                        showToast('Local não encontrado. Tente outro termo de busca.', true);
-                    }
-                });
+            document.getElementById('btn-search').addEventListener('click', searchPlace);
+            document.getElementById('search').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') searchPlace();
             });
 
             // Adicionar gasto
@@ -989,7 +1014,7 @@
                 document.getElementById('expense-amount').value = '';
             });
 
-            // Gerenciar locais (remover, mover)
+            // Interação com lista de locais
             document.getElementById('places-list').addEventListener('click', (e) => {
                 const btn = e.target.closest('button');
                 if (!btn) return;
@@ -1020,7 +1045,7 @@
                 }
             });
 
-            // Remover gastos
+            // Interação com lista de gastos
             document.getElementById('expenses-list').addEventListener('click', (e) => {
                 const btn = e.target.closest('button');
                 if (!btn) return;
@@ -1042,47 +1067,37 @@
                     showToast('Adicione pelo menos 2 locais para otimizar a rota', true);
                     return;
                 }
-                
-                toggleLoading(document.getElementById('optimize-route'), true);
-                setTimeout(() => {
-                    updateRoute();
-                    toggleLoading(document.getElementById('optimize-route'), false);
-                    showToast('Rota otimizada com sucesso!');
-                }, 500);
+                updateRoute();
+                showToast('Rota otimizada com sucesso!');
             });
 
             // Limpar rota
             document.getElementById('clear-route').addEventListener('click', () => {
-                if (places.length > 0 || generalExpenses.length > 0) {
-                    if (confirm('Tem certeza que deseja limpar todo o roteiro?')) {
-                        places = [];
-                        generalExpenses = [];
-                        saveData();
-                        renderPlaces();
-                        renderExpenses();
-                        updateRoute();
-                        stopGPSTracking();
-                        
-                        if (currentPositionMarker) {
-                            currentPositionMarker.setMap(null);
-                            currentPositionMarker = null;
-                        }
-                        if (pathPolyline) {
-                            pathPolyline.setMap(null);
-                            pathPolyline = null;
-                        }
-                        pathCoordinates = [];
-                        
-                        showToast('Roteiro limpo com sucesso!');
+                if ((places.length > 0 || generalExpenses.length > 0 || isTracking) && 
+                    confirm('Tem certeza que deseja limpar todo o roteiro? Todos os dados serão perdidos.')) {
+                    places = [];
+                    generalExpenses = [];
+                    saveData();
+                    renderPlaces();
+                    renderExpenses();
+                    updateRoute();
+                    stopGPSTracking();
+                    if (currentPositionMarker) {
+                        currentPositionMarker.setMap(null);
+                        currentPositionMarker = null;
                     }
-                } else {
-                    showToast('Não há dados para limpar', true);
+                    if (pathPolyline) {
+                        pathPolyline.setMap(null);
+                        pathPolyline = null;
+                    }
+                    pathCoordinates = [];
+                    showToast('Roteiro limpo com sucesso!');
                 }
             });
 
-            // Iniciar/parar viagem (GPS)
+            // Iniciar/parar viagem
             document.getElementById('start-trip').addEventListener('click', function() {
-                if (watchId) {
+                if (isTracking) {
                     stopGPSTracking();
                     showToast('Rastreamento parado');
                 } else {
@@ -1090,60 +1105,79 @@
                 }
             });
 
-            // Exportar dados
-            document.getElementById('export-btn').addEventListener('click', function() {
-                document.getElementById('modal-title').textContent = 'Exportar Roteiro';
-                document.getElementById('data-json').value = exportData();
-                document.getElementById('copy-btn').classList.remove('hidden');
-                document.getElementById('save-btn').classList.add('hidden');
-                document.getElementById('data-modal').classList.remove('hidden');
-            });
-
-            // Importar dados
-            document.getElementById('import-btn').addEventListener('click', function() {
-                document.getElementById('modal-title').textContent = 'Importar Roteiro';
-                document.getElementById('data-json').value = '';
-                document.getElementById('copy-btn').classList.add('hidden');
-                document.getElementById('save-btn').classList.remove('hidden');
-                document.getElementById('data-modal').classList.remove('hidden');
-            });
-
-            // Fechar modal
-            document.getElementById('close-modal').addEventListener('click', function() {
-                document.getElementById('data-modal').classList.add('hidden');
-            });
-
-            // Copiar dados
-            document.getElementById('copy-btn').addEventListener('click', function() {
-                const jsonText = document.getElementById('data-json');
-                jsonText.select();
-                document.execCommand('copy');
-                showToast('Dados copiados para a área de transferência!');
-            });
-
-            // Salvar dados importados
-            document.getElementById('save-btn').addEventListener('click', function() {
-                const jsonText = document.getElementById('data-json').value;
-                if (importData(jsonText)) {
-                    document.getElementById('data-modal').classList.add('hidden');
-                }
-            });
-
             // Atualizar cálculos quando mudar consumo ou preço do combustível
             document.getElementById('fuel-efficiency').addEventListener('change', updateStats);
             document.getElementById('fuel-price').addEventListener('change', updateStats);
 
-            // Permitir pesquisa ao pressionar Enter
-            document.getElementById('search').addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') {
-                    document.getElementById('btn-search').click();
-                }
+            // Exportar dados
+            document.getElementById('export-btn').addEventListener('click', exportTripData);
+
+            // Ajuda
+            document.getElementById('help-btn').addEventListener('click', () => {
+                document.getElementById('help-modal').classList.remove('hidden');
+            });
+
+            document.getElementById('close-help').addEventListener('click', () => {
+                document.getElementById('help-modal').classList.add('hidden');
             });
 
             // Fechar modal ao clicar fora
-            document.getElementById('data-modal').addEventListener('click', (e) => {
-                if (e.target === document.getElementById('data-modal')) {
-                    document.getElementById('data-modal').classList.add('hidden');
+            document.getElementById('help-modal').addEventListener('click', (e) => {
+                if (e.target === document.getElementById('help-modal')) {
+                    document.getElementById('help-modal').classList.add('hidden');
+                }
+            });
+        }
+
+        // Função para pesquisar local
+        function searchPlace() {
+            const query = document.getElementById('search').value.trim();
+            if (!query) {
+                showToast('Digite um local para pesquisar', true);
+                return;
+            }
+
+            const request = {
+                query,
+                fields: ['name', 'geometry', 'formatted_address', 'types']
+            };
+
+            const service = new google.maps.places.PlacesService(map);
+            service.findPlaceFromQuery(request, (results, status) => {
+                if (status === 'OK' && results[0]) {
+                    const place = results[0];
+                    map.setCenter(place.geometry.location);
+                    map.setZoom(15);
+                    
+                    // Preencher automaticamente o nome do local
+                    document.getElementById('place-name').value = place.name;
+                    
+                    // Tentar determinar a categoria automaticamente
+                    let category = 'other';
+                    if (place.types.includes('park') || place.types.includes('natural_feature')) {
+                        category = 'park';
+                    } else if (place.types.includes('tourist_attraction') || place.types.includes('point_of_interest')) {
+                        category = 'attraction';
+                    } else if (place.types.includes('lodging') || place.types.includes('hotel')) {
+                        category = 'hotel';
+                    } else if (place.types.includes('restaurant') || place.types.includes('food')) {
+                        category = 'restaurant';
+                    } else if (place.types.includes('museum') || place.types.includes('art_gallery')) {
+                        category = 'museum';
+                    } else if (place.types.includes('shopping_mall') || place.types.includes('store')) {
+                        category = 'shopping';
+                    }
+                    
+                    document.getElementById('place-category').value = category;
+                    
+                    // Mostrar o endereço completo no campo de pesquisa
+                    if (place.formatted_address) {
+                        document.getElementById('search').value = place.formatted_address;
+                    }
+                    
+                    showToast('Local encontrado! Preencha os detalhes e adicione.');
+                } else {
+                    showToast('Local não encontrado. Tente outro termo de busca.', true);
                 }
             });
         }
