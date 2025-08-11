@@ -36,11 +36,6 @@
       height: 400px;
       width: 100%;
       border-radius: 16px;
-      background-color: #e5e7eb; /* Cor de fundo enquanto o mapa carrega */
-    }
-    /* Garante que o mapa ocupe espaço mesmo durante o carregamento */
-    .map-container {
-      min-height: 400px;
     }
     @media (min-width: 768px) {
       #map {
@@ -86,10 +81,10 @@
     }
   </style>
 </head>
-<body class="bg-gray-50">
+<body class="bg-travel-50">
   <!-- Cabeçalho -->
   <header class="bg-white shadow-sm sticky top-0 z-10">
-    <div class="container mx-auto px-4 py-6 max-w-3xl">
+    <div class="container mx-auto px-4 py-3 flex justify-between items-center">
       <h1 class="text-2xl font-bold text-travel-700">Roteiro de Viagem</h1>
       <nav class="flex gap-4">
         <a href="fotos.html" class="text-travel-600 font-medium">Fotos</a>
@@ -116,10 +111,10 @@
 
     <!-- Mapa Google -->
     <div class="card bg-white p-4 mb-6 shadow-md rounded-xl">
-      <h2 class="text-lg font-semibold text-blue-800 mb-3">Mapa da Viagem</h2>
-      <div class="map-container">
-        <div id="map"></div>
-       </div>
+      <h2 class="text-lg font-semibold text-travel-800 mb-3">Mapa da Viagem</h2>
+      <div id="map"></div>
+      <div class="flex justify-between mt-3">
+        <div>
           <button id="start-trip" class="bg-travel-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-travel-700 transition mr-2">
             Iniciar Viagem
           </button>
@@ -295,7 +290,6 @@
     }
 
     // Inicialização do mapa
-    // Função para inicializar o mapa
     function initMap() {
       console.log("Inicializando mapa...");
       
@@ -303,7 +297,7 @@
       const initialLocation = { lat: -15.795, lng: -47.891 };
       
       // Criar o mapa
-      const map = new google.maps.Map(document.getElementById("map"), {
+      map = new google.maps.Map(document.getElementById("map"), {
         center: initialLocation,
         zoom: 12,
         mapTypeControl: true,
@@ -317,42 +311,18 @@
         ]
       });
       
-      // Adicionar um marcador inicial
-      new google.maps.Marker({
-        position: initialLocation,
+      // Inicializar serviços do Google Maps
+      directionsService = new google.maps.DirectionsService();
+      directionsRenderer = new google.maps.DirectionsRenderer({
         map: map,
-        title: "Localização inicial"
+        suppressMarkers: true,
+        polylineOptions: {
+          strokeColor: '#0ea5e9',
+          strokeOpacity: 0.8,
+          strokeWeight: 5
+        }
       });
       
-      console.log("Mapa inicializado com sucesso!");
-    }
-
-    // Carregar a API do Google Maps
-    function loadGoogleMaps() {
-      // Verificar se a API já foi carregada
-      if (window.google && window.google.maps) {
-        initMap();
-        return;
-      }
-      
-      const script = document.createElement("script");
-      script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyAPkjcgFgdopkeZN0GnvhOc787jrajJnWc&callback=initMap`;
-      script.async = true;
-      script.defer = true;
-      script.onerror = () => {
-        console.error("Erro ao carregar a API do Google Maps");
-        document.getElementById("map").innerHTML = 
-          '<div class="p-4 text-center text-red-600">Erro ao carregar o mapa. Verifique sua conexão com a internet.</div>';
-      };
-      document.head.appendChild(script);
-    }
-
-    // Iniciar quando a página carregar
-    window.addEventListener("DOMContentLoaded", () => {
-      console.log("Página carregada, carregando mapa...");
-      loadGoogleMaps();
-    });
-
       infoWindow = new google.maps.InfoWindow();
 
       // Configurar autocomplete para pesquisa
@@ -372,6 +342,8 @@
       
       // Configurar eventos
       setupEventListeners();
+      
+      console.log("Mapa inicializado com sucesso!");
     }
 
     // Função chamada quando um lugar é selecionado no autocomplete
@@ -465,7 +437,7 @@
                 errorMessage = "Permissão de localização negada. Ative no navegador.";
                 break;
               case error.POSITION_UNAVAILABLE:
-                errorMessage = "Informação de localização indisponível.";
+                errorError = "Informação de localização indisponível.";
                 break;
               case error.TIMEOUT:
                 errorMessage = "Tempo de espera para localização expirado.";
