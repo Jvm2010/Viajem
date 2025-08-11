@@ -1,6 +1,7 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
-import { getDatabase } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-database.js";
-import { getStorage } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-storage.js";
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+import { 
+  getDatabase, ref, set, push, onValue, remove 
+} from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
 
 const firebaseConfig = {
   apiKey: "AIzaSyCo85R9Kx5jEj-nJmfxdLHLMkbUaaxnwGg",
@@ -13,6 +14,43 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
-export const db = getDatabase(app);
-export const storage = getStorage(app);
-export default app;
+const db = getDatabase(app);
+const userId = 'joao123'; // Em produção, usar auth.currentUser.uid
+
+// Operações CRUD para locais
+export async function getPlaces() {
+  return new Promise((resolve, reject) => {
+    try {
+      const placesRef = ref(db, `users/${userId}/places`);
+      onValue(placesRef, (snapshot) => {
+        const data = snapshot.val() || {};
+        const places = Object.entries(data).map(([id, place]) => ({
+          id, ...place
+        }));
+        resolve(places);
+      }, { onlyOnce: true });
+    } catch (error) {
+      reject(error);
+    }
+  });
+}
+
+export async function savePlace(place) {
+  try {
+    const newPlaceRef = push(ref(db, `users/${userId}/places`));
+    await set(newPlaceRef, place);
+    return newPlaceRef.key;
+  } catch (error) {
+    console.error("Erro ao salvar local:", error);
+    throw error;
+  }
+}
+
+export async function deletePlace(id) {
+  try {
+    await remove(ref(db, `users/${userId}/places/${id}`));
+  } catch (error) {
+    console.error("Erro ao remover local:", error);
+    throw error;
+  }
+}

@@ -1,283 +1,319 @@
 <!doctype html>
 <html lang="pt-BR">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Galeria de Fotos — Viagem Planner Pro</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <title>Fotos — Viagem Romântica</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="style.css" />
-  <script type="module" src="firebase.js"></script>
-  <script type="module" src="ia_helper.js"></script>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/ffmpeg.js@1.1.0/dist/ffmpeg.min.js"></script>
 </head>
-<body class="bg-gray-50 text-gray-800">
-  <!-- Verificação de autenticação -->
-  <script>
-    (function(){
-      try {
-        const auth = sessionStorage.getItem('viagem:auth');
-        if(auth !== '1' && auth !== '0') window.location.href = 'index.html';
-      } catch(e) { console.error(e); }
-    })();
-  </script>
-
-  <header class="bg-white shadow p-4 sticky top-0 z-10">
-    <div class="max-w-6xl mx-auto flex items-center justify-between">
-      <h1 class="text-lg font-semibold">Galeria de Fotos</h1>
-      <nav class="text-sm space-x-4">
-        <a href="index.html" class="text-sky-600">Sair</a>
-        <a href="roteiro.html" class="text-sky-600">Roteiro</a>
+<body class="bg-pink-50">
+  <div class="fixed top-0 left-0 right-0 bg-white shadow-md z-10 p-4">
+    <div class="flex justify-between items-center max-w-3xl mx-auto">
+      <h1 class="text-xl font-bold text-pink-600">Memórias Românticas</h1>
+      <nav class="flex gap-3">
+        <a href="roteiro.html" class="text-pink-500">Roteiro</a>
+        <a href="index.html" class="text-gray-500">Sair</a>
       </nav>
     </div>
-  </header>
+  </div>
 
-  <main class="max-w-6xl mx-auto p-4 space-y-6">
-    <section class="card">
-      <h2 class="font-semibold text-lg">Upload de Fotos</h2>
+  <main class="pt-20 pb-24 px-4 max-w-3xl mx-auto">
+    <!-- Upload de Fotos -->
+    <div class="card bg-white p-4 mb-6">
+      <h2 class="text-lg font-bold text-pink-600 mb-3">Adicionar Fotos</h2>
       
-      <div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-          <input type="file" id="file-upload" accept="image/*" multiple class="hidden">
-          <button id="upload-btn" class="badge mb-2">Selecionar Fotos</button>
-          <p class="small text-gray-500">Ou arraste e solte fotos aqui</p>
-        </div>
+      <div class="flex flex-col gap-3">
+        <input type="file" id="file-input" accept="image/*" multiple class="hidden">
+        <button id="upload-btn" class="bg-pink-600 text-white py-3 rounded-lg">
+          Selecionar Fotos
+        </button>
         
-        <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-          <button id="camera-btn" class="badge mb-2">Tirar Foto</button>
-          <p class="small text-gray-500">Use a câmera do seu dispositivo</p>
-        </div>
+        <button id="camera-btn" class="border border-pink-500 text-pink-600 py-3 rounded-lg">
+          Tirar Foto com Câmera
+        </button>
       </div>
-    </section>
+    </div>
     
-    <section class="card">
-      <h2 class="font-semibold text-lg">Suas Fotos</h2>
-      <div class="mt-3 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3" id="gallery"></div>
-    </section>
+    <!-- Galeria -->
+    <div class="card bg-white p-4 mb-6">
+      <div class="flex justify-between items-center mb-3">
+        <h2 class="text-lg font-bold text-pink-600">Suas Fotos</h2>
+        <button id="clear-photos" class="text-red-500 text-sm">Limpar Tudo</button>
+      </div>
+      
+      <div id="gallery" class="grid grid-cols-3 gap-2"></div>
+    </div>
     
-    <section class="card" id="ia-section">
-      <h2 class="font-semibold text-lg">Criação Automática com IA</h2>
-      <p class="small mt-1">Selecione fotos e crie vídeos incríveis automaticamente</p>
+    <!-- Criação de Vídeo -->
+    <div class="card bg-white p-4">
+      <h2 class="text-lg font-bold text-pink-600 mb-3">Criar Vídeo Romântico</h2>
       
-      <div class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div class="ia-option" data-style="romantic">
-          <div class="bg-pink-100 rounded-lg p-4 h-full">
-            <div class="bg-pink-200 h-32 rounded-lg flex items-center justify-center">
-              <span class="text-pink-500 text-4xl">❤️</span>
-            </div>
-            <h4 class="mt-3 font-medium">Romântico</h4>
-            <p class="small mt-1 text-gray-600">Transições suaves, filtros quentes</p>
-            <button class="badge mt-3 w-full">Criar Vídeo</button>
-          </div>
-        </div>
-        
-        <div class="ia-option" data-style="adventure">
-          <div class="bg-green-100 rounded-lg p-4 h-full">
-            <div class="bg-green-200 h-32 rounded-lg flex items-center justify-center">
-              <span class="text-green-500 text-4xl">🏔️</span>
-            </div>
-            <h4 class="mt-3 font-medium">Aventura</h4>
-            <p class="small mt-1 text-gray-600">Cortes dinâmicos, música animada</p>
-            <button class="badge mt-3 w-full">Criar Vídeo</button>
-          </div>
-        </div>
-        
-        <div class="ia-option" data-style="cinematic">
-          <div class="bg-blue-100 rounded-lg p-4 h-full">
-            <div class="bg-blue-200 h-32 rounded-lg flex items-center justify-center">
-              <span class="text-blue-500 text-4xl">🎬</span>
-            </div>
-            <h4 class="mt-3 font-medium">Cinemático</h4>
-            <p class="small mt-1 text-gray-600">Efeito filme, barras laterais</p>
-            <button class="badge mt-3 w-full">Criar Vídeo</button>
-          </div>
-        </div>
+      <div class="grid grid-cols-2 gap-3 mb-4">
+        <button id="btn-tumblr" class="bg-pink-100 text-pink-600 p-3 rounded-lg border border-pink-200">
+          Estilo Tumblr
+        </button>
+        <button id="btn-casal" class="bg-pink-100 text-pink-600 p-3 rounded-lg border border-pink-200">
+          Vídeo de Casal
+        </button>
       </div>
       
-      <div id="ia-result" class="mt-6 hidden">
-        <div class="flex justify-between items-center">
-          <h4 class="font-semibold">Seu vídeo está pronto!</h4>
-          <button id="download-video" class="badge">Baixar Vídeo</button>
-        </div>
-        <video controls class="w-full mt-3 rounded-lg bg-black"></video>
-        <div class="mt-3 flex gap-2">
-          <button id="save-video" class="badge">Salvar na Galeria</button>
-          <button id="new-video" class="text-sm text-sky-600">Criar outro</button>
+      <div id="video-result" class="hidden">
+        <video controls class="w-full rounded-lg mb-3"></video>
+        <button id="download-video" class="w-full bg-pink-600 text-white py-2 rounded-lg">
+          Baixar Vídeo
+        </button>
+      </div>
+      
+      <div id="progress" class="hidden mt-3">
+        <p class="text-center text-sm text-pink-600">Processando vídeo...</p>
+        <div class="w-full bg-pink-100 rounded-full h-2">
+          <div id="progress-bar" class="bg-pink-600 h-2 rounded-full" style="width: 0%"></div>
         </div>
       </div>
-    </section>
+    </div>
   </main>
 
-  <script type="module">
-    import { VideoCreator } from './ia_helper.js';
-    import { uploadImage, getImageUrl, saveVideo } from './db_api.js';
-    
-    const gallery = document.getElementById('gallery');
-    const fileUpload = document.getElementById('file-upload');
+  <script>
+    // Elementos da UI
+    const fileInput = document.getElementById('file-input');
     const uploadBtn = document.getElementById('upload-btn');
     const cameraBtn = document.getElementById('camera-btn');
-    const videoResult = document.querySelector('#ia-result video');
-    const videoCreator = new VideoCreator();
+    const gallery = document.getElementById('gallery');
+    const videoResult = document.getElementById('video-result');
+    const videoElement = videoResult.querySelector('video');
+    const progress = document.getElementById('progress');
+    const progressBar = document.getElementById('progress-bar');
     
-    let selectedPhotos = [];
-    let currentUserPhotos = [];
+    // Fotos do usuário
+    let photos = JSON.parse(localStorage.getItem('viagem_photos')) || [];
     
-    // Carregar fotos do usuário
-    async function loadUserPhotos() {
-      // Simulação - na prática buscaria do Firebase
-      currentUserPhotos = JSON.parse(localStorage.getItem('user_photos') || [];
-      renderGallery();
+    // Inicializar FFmpeg
+    const ffmpeg = createFFmpeg({ log: true });
+    let ffmpegLoaded = false;
+    
+    // Carregar FFmpeg
+    async function loadFFmpeg() {
+      if (!ffmpegLoaded) {
+        await ffmpeg.load();
+        ffmpegLoaded = true;
+      }
     }
     
     // Renderizar galeria
     function renderGallery() {
-      gallery.innerHTML = currentUserPhotos.map((photo, index) => `
-        <div class="relative group">
-          <img src="${photo.url}" class="w-full h-32 object-cover rounded-lg">
-          <div class="absolute inset-0 bg-black bg-opacity-50 rounded-lg opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
-            <button data-index="${index}" class="select-btn ${photo.selected ? 'bg-blue-500' : 'bg-white'} text-xs p-1 rounded">
-              ${photo.selected ? '✓ Selecionada' : 'Selecionar'}
-            </button>
-          </div>
+      gallery.innerHTML = photos.map((photo, index) => `
+        <div class="relative aspect-square">
+          <img src="${photo.url}" class="w-full h-full object-cover rounded-lg">
+          <button data-index="${index}" class="absolute top-1 right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs">
+            ×
+          </button>
         </div>
       `).join('');
+      
+      localStorage.setItem('viagem_photos', JSON.stringify(photos));
     }
     
-    // Upload de fotos
-    uploadBtn.addEventListener('click', () => fileUpload.click());
+    // Adicionar foto
+    function addPhoto(url) {
+      photos.push({
+        url,
+        date: new Date().toISOString()
+      });
+      renderGallery();
+    }
     
-    fileUpload.addEventListener('change', async (e) => {
+    // Event Listeners
+    uploadBtn.addEventListener('click', () => fileInput.click());
+    
+    fileInput.addEventListener('change', (e) => {
       const files = Array.from(e.target.files);
       if (files.length === 0) return;
       
-      for (const file of files) {
-        try {
-          const url = await uploadImage(file);
-          currentUserPhotos.push({ url, selected: false });
-        } catch (error) {
-          console.error('Erro no upload:', error);
-        }
-      }
+      files.forEach(file => {
+        const reader = new FileReader();
+        reader.onload = (event) => addPhoto(event.target.result);
+        reader.readAsDataURL(file);
+      });
       
-      savePhotos();
-      renderGallery();
+      fileInput.value = '';
     });
     
-    // Tirar foto
     cameraBtn.addEventListener('click', async () => {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-      
-      // Criar interface para tirar foto
-      const cameraModal = document.createElement('div');
-      cameraModal.className = 'fixed inset-0 bg-black bg-opacity-75 flex flex-col items-center justify-center z-50';
-      cameraModal.innerHTML = `
-        <div class="bg-white rounded-lg p-4 max-w-md w-full">
-          <h3 class="font-semibold mb-2">Tirar Foto</h3>
-          <video id="camera-preview" class="w-full bg-black rounded" autoplay></video>
-          <div class="mt-3 flex justify-center gap-3">
-            <button id="capture-btn" class="badge">Capturar</button>
-            <button id="cancel-camera" class="text-sm text-gray-600">Cancelar</button>
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        
+        // Criar interface da câmera
+        const cameraUI = document.createElement('div');
+        cameraUI.className = 'fixed inset-0 bg-black z-50 flex flex-col';
+        cameraUI.innerHTML = `
+          <video id="camera-preview" autoplay class="flex-1"></video>
+          <div class="bg-white p-4 flex justify-center gap-4">
+            <button id="take-photo" class="bg-pink-600 text-white p-3 rounded-full">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+              </svg>
+            </button>
+            <button id="close-camera" class="bg-gray-200 p-3 rounded-full">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
           </div>
-        </div>
-      `;
-      
-      document.body.appendChild(cameraModal);
-      const preview = document.getElementById('camera-preview');
-      preview.srcObject = stream;
-      
-      document.getElementById('capture-btn').addEventListener('click', async () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = preview.videoWidth;
-        canvas.height = preview.videoHeight;
-        canvas.getContext('2d').drawImage(preview, 0, 0);
+        `;
         
-        const photoUrl = canvas.toDataURL('image/jpeg');
-        currentUserPhotos.push({ url: photoUrl, selected: false });
-        savePhotos();
-        renderGallery();
+        document.body.appendChild(cameraUI);
+        const preview = document.getElementById('camera-preview');
+        preview.srcObject = stream;
         
-        stream.getTracks().forEach(track => track.stop());
-        cameraModal.remove();
-      });
-      
-      document.getElementById('cancel-camera').addEventListener('click', () => {
-        stream.getTracks().forEach(track => track.stop());
-        cameraModal.remove();
-      });
+        document.getElementById('take-photo').addEventListener('click', () => {
+          const canvas = document.createElement('canvas');
+          canvas.width = preview.videoWidth;
+          canvas.height = preview.videoHeight;
+          canvas.getContext('2d').drawImage(preview, 0, 0);
+          
+          addPhoto(canvas.toDataURL('image/jpeg'));
+          closeCamera();
+        });
+        
+        document.getElementById('close-camera').addEventListener('click', closeCamera);
+        
+        function closeCamera() {
+          stream.getTracks().forEach(track => track.stop());
+          cameraUI.remove();
+        }
+      } catch (error) {
+        alert('Não foi possível acessar a câmera: ' + error.message);
+      }
     });
     
-    // Selecionar fotos para vídeo
+    // Remover foto
     gallery.addEventListener('click', (e) => {
-      const selectBtn = e.target.closest('.select-btn');
-      if (!selectBtn) return;
+      const btn = e.target.closest('button');
+      if (!btn) return;
       
-      const index = selectBtn.dataset.index;
-      currentUserPhotos[index].selected = !currentUserPhotos[index].selected;
-      savePhotos();
+      const index = btn.dataset.index;
+      photos.splice(index, 1);
       renderGallery();
     });
     
-    // Criar vídeos com IA
-    document.querySelectorAll('.ia-option').forEach(option => {
-      option.addEventListener('click', async () => {
-        const style = option.dataset.style;
-        selectedPhotos = currentUserPhotos.filter(p => p.selected);
-        
-        if (selectedPhotos.length < 3) {
-          alert('Selecione pelo menos 3 fotos para criar um vídeo');
-          return;
-        }
-        
-        // Mostrar loading
-        option.querySelector('button').textContent = 'Processando...';
-        
-        try {
-          const video = await videoCreator.createVideo(
-            selectedPhotos.map(p => p.url),
-            style
-          );
-          
-          videoResult.src = video.url;
-          document.getElementById('ia-result').classList.remove('hidden');
-        } catch (error) {
-          console.error('Erro ao criar vídeo:', error);
-          alert('Erro ao criar vídeo. Tente novamente.');
-        }
-        
-        option.querySelector('button').textContent = 'Criar Vídeo';
-      });
+    // Limpar fotos
+    document.getElementById('clear-photos').addEventListener('click', () => {
+      if (photos.length > 0 && confirm('Limpar todas as fotos?')) {
+        photos = [];
+        renderGallery();
+      }
     });
     
-    // Salvar vídeo
-    document.getElementById('save-video').addEventListener('click', async () => {
-      try {
-        await saveVideo(videoResult.src);
-        alert('Vídeo salvo na galeria!');
-      } catch (error) {
-        console.error('Erro ao salvar vídeo:', error);
-        alert('Erro ao salvar vídeo.');
-      }
+    // Criar vídeo estilo Tumblr
+    document.getElementById('btn-tumblr').addEventListener('click', async () => {
+      if (photos.length < 3) return alert('Adicione pelo menos 3 fotos');
+      await createVideo('tumblr');
+    });
+    
+    // Criar vídeo de casal
+    document.getElementById('btn-casal').addEventListener('click', async () => {
+      if (photos.length < 3) return alert('Adicione pelo menos 3 fotos');
+      await createVideo('casal');
     });
     
     // Baixar vídeo
     document.getElementById('download-video').addEventListener('click', () => {
       const a = document.createElement('a');
-      a.href = videoResult.src;
-      a.download = `viagem-${new Date().toISOString().slice(0,10)}.mp4`;
+      a.href = videoElement.src;
+      a.download = `viagem-romantica-${new Date().toISOString().slice(0,10)}.mp4`;
       a.click();
     });
     
-    // Novo vídeo
-    document.getElementById('new-video').addEventListener('click', () => {
-      document.getElementById('ia-result').classList.add('hidden');
-    });
-    
-    // Salvar fotos no localStorage (simulação)
-    function savePhotos() {
-      localStorage.setItem('user_photos', JSON.stringify(currentUserPhotos));
+    // Criar vídeo com FFmpeg
+    async function createVideo(style) {
+      try {
+        videoResult.classList.add('hidden');
+        progress.classList.remove('hidden');
+        progressBar.style.width = '0%';
+        
+        await loadFFmpeg();
+        
+        // Configurações baseadas no estilo
+        const config = {
+          tumblr: { duration: 3, transition: 'fade', filter: 'vignette' },
+          casal: { duration: 4, transition: 'slide', filter: 'warm' }
+        }[style];
+        
+        // Processar cada foto
+        let ffmpegCommand = '';
+        const inputFiles = [];
+        
+        for (let i = 0; i < photos.length; i++) {
+          const photo = photos[i];
+          const filename = `input${i}.jpg`;
+          
+          // Converter data URL para blob
+          const blob = await fetch(photo.url).then(r => r.blob());
+          const arrayBuffer = await blob.arrayBuffer();
+          const uint8Array = new Uint8Array(arrayBuffer);
+          
+          ffmpeg.FS('writeFile', filename, uint8Array);
+          inputFiles.push(filename);
+          
+          // Adicionar efeitos baseados no estilo
+          let filter = '';
+          if (config.filter === 'vignette') {
+            filter = ', vignette=angle=45:strength=0.5';
+          } else if (config.filter === 'warm') {
+            filter = ', colorbalance=rs=0.3:gs=-0.1:bs=-0.2';
+          }
+          
+          ffmpegCommand += `
+            -i ${filename} -vf "scale=w=720:h=720:force_original_aspect_ratio=1${filter}" ${filename}_scaled.mp4;
+            -loop 1 -t ${config.duration} -i ${filename}_scaled.mp4
+          `;
+          
+          progressBar.style.width = `${(i / photos.length) * 50}%`;
+        }
+        
+        // Criar transições
+        let filterComplex = '';
+        for (let i = 0; i < photos.length - 1; i++) {
+          if (config.transition === 'fade') {
+            filterComplex += `[v${i}][v${i+1}]blend=all_expr='A*(1-T/${config.duration})+B*(T/${config.duration})'[b${i}];`;
+          } else {
+            filterComplex += `[v${i}][v${i+1}]slide=transition=${config.transition}:duration=1:offset=${config.duration-1}[b${i}];`;
+          }
+        }
+        
+        // Comando FFmpeg final
+        const outputFilename = 'output.mp4';
+        const fullCommand = `
+          ${ffmpegCommand}
+          -filter_complex "${filterComplex}"
+          -map "[b${photos.length-2}]" -c:v libx264 -pix_fmt yuv420p ${outputFilename}
+        `;
+        
+        // Executar FFmpeg
+        await ffmpeg.run(fullCommand);
+        
+        // Obter resultado
+        const data = ffmpeg.FS('readFile', outputFilename);
+        const videoUrl = URL.createObjectURL(
+          new Blob([data.buffer], { type: 'video/mp4' })
+        );
+        
+        // Mostrar resultado
+        videoElement.src = videoUrl;
+        videoResult.classList.remove('hidden');
+        progress.classList.add('hidden');
+        
+      } catch (error) {
+        console.error('Erro ao criar vídeo:', error);
+        alert('Erro ao criar vídeo. Tente novamente.');
+        progress.classList.add('hidden');
+      }
     }
     
     // Inicializar
-    loadUserPhotos();
+    renderGallery();
   </script>
 </body>
 </html>
