@@ -32,16 +32,19 @@
     body {
       font-family: 'Roboto', sans-serif;
     }
-    #map {
-      height: 400px;
-      width: 100%;
-      border-radius: 16px;
-    }
-    @media (min-width: 768px) {
-      #map {
-        height: 400px;
-      }
-    }
+        #map {
+            height: 400px;
+            width: 100%;
+            background-color: #e5e7eb;
+        }
+        .loading-map {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 400px;
+            font-weight: bold;
+            color: #4b5563;
+        }
     .place-item {
       transition: all 0.3s ease;
     }
@@ -81,17 +84,17 @@
     }
   </style>
 </head>
-<body class="bg-travel-50">
+<body class="bg-gray-100">
   <!-- Cabeçalho -->
-  <header class="bg-white shadow-sm sticky top-0 z-10">
-    <div class="container mx-auto px-4 py-3 flex justify-between items-center">
-      <h1 class="text-2xl font-bold text-travel-700">Roteiro de Viagem</h1>
-      <nav class="flex gap-4">
-        <a href="fotos.html" class="text-travel-600 font-medium">Fotos</a>
-        <a href="index.html" class="text-gray-500">Sair</a>
-      </nav>
-    </div>
-  </header>
+   <div class="container mx-auto px-4 py-6 max-w-3xl">
+        <!-- Cabeçalho -->
+        <header class="bg-white shadow-sm rounded-lg mb-6 p-4">
+            <h1 class="text-2xl font-bold text-blue-800">Roteiro de Viagem</h1>
+            <nav class="flex gap-4 mt-2">
+                <a href="#" class="text-blue-600 font-medium">Fotos</a>
+                <a href="#" class="text-gray-500">Sair</a>
+            </nav>
+        </header>
 
   <main class="container mx-auto px-4 py-6 max-w-3xl">
     <!-- Configurações do Veículo -->
@@ -109,63 +112,68 @@
       </div>
     </div>
 
-    <!-- Mapa Google -->
-    <div class="card bg-white p-4 mb-6 shadow-md rounded-xl">
-      <h2 class="text-lg font-semibold text-travel-800 mb-3">Mapa da Viagem</h2>
-      <div id="map"></div>
-      <div class="flex justify-between mt-3">
-        <div>
-          <button id="start-trip" class="bg-travel-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-travel-700 transition mr-2">
-            Iniciar Viagem
-          </button>
-          <button id="optimize-route" class="bg-travel-100 text-travel-700 px-4 py-2 rounded-lg font-medium hover:bg-travel-200 transition">
-            Otimizar Rota
-          </button>
-        </div>
-        <button id="clear-route" class="text-red-500 px-4 py-2 rounded-lg border border-red-200 hover:bg-red-50 transition">
-          Limpar Tudo
-        </button>
-      </div>
-    </div>
-
-    <!-- Adicionar Local -->
-    <div class="card bg-white p-5 mb-6 shadow-md rounded-xl">
-      <h2 class="text-lg font-semibold text-travel-800 mb-4">Adicionar Local</h2>
-      <div class="space-y-4">
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Pesquisar local...</label>
-          <div class="relative">
-            <input id="search" type="text" class="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-travel-300 focus:border-travel-300" placeholder="Digite o nome de um local">
-            <button id="btn-search" class="absolute right-2 top-2 bg-travel-500 text-white p-2 rounded-lg">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" />
-              </svg>
-            </button>
-          </div>
-        </div>
-        
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Nome do Local</label>
-            <input id="place-name" class="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-travel-300">
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Custo (R$)</label>
-            <input id="place-value" type="number" min="0" step="0.01" class="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-travel-300">
-          </div>
+        <!-- Mapa Google -->
+        <div class="bg-white rounded-lg shadow-md p-4 mb-6">
+            <h2 class="text-lg font-semibold text-gray-800 mb-3">Mapa da Viagem</h2>
+            <div id="map">
+                <div class="loading-map">Carregando mapa...</div>
+            </div>
+            <div class="flex justify-between mt-3">
+                <div>
+                    <button id="start-trip" class="bg-blue-600 text-white px-4 py-2 rounded-md font-medium hover:bg-blue-700 transition mr-2">
+                        Iniciar Viagem
+                    </button>
+                    <button id="optimize-route" class="bg-blue-100 text-blue-700 px-4 py-2 rounded-md font-medium hover:bg-blue-200 transition">
+                        Otimizar Rota
+                    </button>
+                </div>
+                <button id="clear-route" class="text-red-500 px-4 py-2 rounded-md border border-red-200 hover:bg-red-50 transition">
+                    Limpar Tudo
+                </button>
+            </div>
         </div>
 
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Categoria</label>
-          <select id="place-category" class="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-travel-300">
-            <option value="attraction">Atração Turística</option>
-            <option value="park">Parque/Natureza</option>
-            <option value="hotel">Hotel/Hospedagem</option>
-            <option value="restaurant">Restaurante</option>
-            <option value="museum">Museu/Cultural</option>
-            <option value="shopping">Compras</option>
-            <option value="other">Outro</option>
-          </select>
+        <!-- Adicionar Local -->
+        <div class="bg-white rounded-lg shadow-md p-5 mb-6">
+            <h2 class="text-lg font-semibold text-gray-800 mb-4">Adicionar Local</h2>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Pesquisar local...</label>
+                    <div class="relative">
+                        <input id="search" type="text" class="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-300" placeholder="Digite o nome de um local">
+                        <button id="btn-search" class="absolute right-2 top-2 bg-blue-500 text-white p-1 rounded-md">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Nome do Local</label>
+                        <input id="place-name" class="w-full p-2 border border-gray-300 rounded-md">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Custo (R$)</label>
+                        <input id="place-value" type="number" min="0" step="0.01" class="w-full p-2 border border-gray-300 rounded-md">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Categoria</label>
+                    <select id="place-category" class="w-full p-2 border border-gray-300 rounded-md">
+                        <option value="attraction">Atração Turística</option>
+                        <option value="park">Parque/Natureza</option>
+                        <option value="hotel">Hotel/Hospedagem</option>
+                        <option value="restaurant">Restaurante</option>
+                        <option value="museum">Museu/Cultural</option>
+                        <option value="shopping">Compras</option>
+                        <option value="other">Outro</option>
+                    </select>
+                </div>
+                
+                <button id="add-place" class="w-full bg-blue-600 text-white py-2 rounded-md font-medium hover:bg-blue-700 transition">
         </div>
         
         <button id="add-place" class="w-full bg-travel-600 text-white py-3 rounded-lg font-medium hover:bg-travel-700 transition">
@@ -290,38 +298,64 @@
     }
 
     // Inicialização do mapa
-    function initMap() {
-      console.log("Inicializando mapa...");
-      
-      // Coordenadas iniciais (Brasília)
-      const initialLocation = { lat: -15.795, lng: -47.891 };
-      
-      // Criar o mapa
-      map = new google.maps.Map(document.getElementById("map"), {
-        center: initialLocation,
-        zoom: 12,
-        mapTypeControl: true,
-        streetViewControl: false,
-        styles: [
-          {
-            featureType: "poi",
-            elementType: "labels",
-            stylers: [{ visibility: "off" }]
-          }
-        ]
-      });
-      
-      // Inicializar serviços do Google Maps
-      directionsService = new google.maps.DirectionsService();
-      directionsRenderer = new google.maps.DirectionsRenderer({
-        map: map,
-        suppressMarkers: true,
-        polylineOptions: {
-          strokeColor: '#0ea5e9',
-          strokeOpacity: 0.8,
-          strokeWeight: 5
+        // Função para inicializar o mapa
+        function initMap() {
+            console.log("Inicializando mapa...");
+            
+            // Remover mensagem de carregamento
+            const mapElement = document.getElementById('map');
+            mapElement.innerHTML = '';
+            
+            // Coordenadas iniciais (Brasília)
+            const initialLocation = { lat: -15.795, lng: -47.891 };
+            
+            // Criar o mapa
+            const map = new google.maps.Map(mapElement, {
+                center: initialLocation,
+                zoom: 12,
+                mapTypeControl: true,
+                streetViewControl: false,
+                styles: [
+                    {
+                        featureType: "poi",
+                        elementType: "labels",
+                        stylers: [{ visibility: "off" }]
+                    }
+                ]
+            });
+            
+            // Adicionar um marcador inicial
+            new google.maps.Marker({
+                position: initialLocation,
+                map: map,
+                title: "Localização inicial"
+            });
+            
+            console.log("Mapa inicializado com sucesso!");
         }
-      });
+
+        // Carregar a API do Google Maps
+        function loadGoogleMaps() {
+            // Verificar se a API já foi carregada
+            if (window.google && window.google.maps) {
+                initMap();
+                return;
+            }
+            
+            const script = document.createElement("script");
+            script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyAPkjcgFgdopkeZN0GnvhOc787jrajJnWc&callback=initMap`;
+            script.async = true;
+            script.defer = true;
+            script.onerror = () => {
+                console.error("Erro ao carregar a API do Google Maps");
+                document.getElementById("map").innerHTML = 
+                    '<div class="loading-map">Erro ao carregar o mapa. Verifique sua conexão com a internet.</div>';
+            };
+            document.head.appendChild(script);
+        }
+
+        // Iniciar quando a página carregar
+        window.addEventListener("DOMContentLoaded", loadGoogleMaps);
       
       infoWindow = new google.maps.InfoWindow();
 
