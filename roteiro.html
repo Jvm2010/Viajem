@@ -41,6 +41,19 @@
     #abort-temp { display:none; }
     .iw-btn { display:inline-block; margin-top:6px; background:#0ea5e9; color:#fff; padding:6px 10px; border-radius:6px; text-decoration:none; font-weight:600; }
     .iw-btn.desist { background:#ef4444; }
+    /* pulsing circle for search ping */
+    .ping-circle {
+      width: 18px; height: 18px; border-radius: 50%;
+      box-shadow: 0 0 0 4px rgba(14,165,233,0.18);
+      background: rgba(14,165,233,1);
+      border: 2px solid rgba(255,255,255,0.9);
+    }
+    /* marker label style fix */
+    .gm-style .gm-style-iw { max-width: 260px !important; }
+    /* small responsive */
+    @media (max-width: 640px) {
+      #map { height: 320px; }
+    }
   </style>
 </head>
 <body class="bg-travel-50">
@@ -211,30 +224,34 @@
     const categoryStyles = {
       attraction: { color: '#ef4444', icon: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png', name: 'Atração' },
       park:       { color: '#10b981', icon: 'https://maps.google.com/mapfiles/ms/icons/green-dot.png', name: 'Parque' },
-      hotel:      { color: '#3b82f6', icon: 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png', name: 'Hotel' },
+      // hotel mudou para uma cor distinta (teal) para reduzir confusão com o azul de "salvo"
+      hotel:      { color: '#06b6d4', icon: 'https://maps.google.com/mapfiles/ms/icons/ltblue-dot.png', name: 'Hotel' },
       motel:      { color: '#8b5cf6', icon: 'https://maps.google.com/mapfiles/ms/icons/purple-dot.png', name: 'Motel' },
       restaurant: { color: '#f97316', icon: 'https://maps.google.com/mapfiles/ms/icons/orange-dot.png', name: 'Restaurante' },
       gas_station:{ color: '#f59e0b', icon: 'https://maps.google.com/mapfiles/ms/icons/yellow-dot.png', name: 'Posto' },
       supermarket:{ color: '#a3e635', icon: 'https://maps.google.com/mapfiles/ms/icons/lightgreen-dot.png', name: 'Mercado' },
       museum:     { color: '#f59e0b', icon: 'https://maps.google.com/mapfiles/ms/icons/yellow-dot.png', name: 'Museu' },
       shopping:   { color: '#8b5cf6', icon: 'https://maps.google.com/mapfiles/ms/icons/purple-dot.png', name: 'Compras' },
-      other:      { color: '#6b7280', icon: 'https://maps.google.com/mapfiles/ms/icons/pink-dot.png', name: 'Outro' }
+      other:      { color: '#6b7280', icon: 'https://maps.google.com/mapfiles/ms/icons/pink-dot.png', name: 'Outro' },
+      // estilo dedicado para marcadores "salvos" (azul claro)
+      saved:      { color: '#7dd3fc', icon: 'https://maps.google.com/mapfiles/ms/icons/ltblue-dot.png', name: 'Salvo' }
     };
 
     // utils
     function showToast(message, isError = false) {
       const toast = document.createElement('div');
-      toast.className = toast ${isError ? 'error' : ''};
+      toast.className = 'toast' + (isError ? ' error' : '');
       toast.textContent = message;
       document.body.appendChild(toast);
       setTimeout(() => { toast.style.opacity = '0'; setTimeout(()=>toast.remove(),300); }, 3000);
     }
-    function formatCurrency(value) { return value === 0 ? 'R$ 0,00' : value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); }
+    function formatCurrency(value) { return (typeof value === 'number' && !isNaN(value)) ? value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : 'R$ 0,00'; }
     function hexToRgba(hex, alpha=1) {
-      if(!hex) return rgba(0,0,0,${alpha});
-      const h = hex.replace('#',''); const bigint = parseInt(h,16);
+      if(!hex) return `rgba(0,0,0,${alpha})`;
+      const h = hex.replace('#','');
+      const bigint = parseInt(h,16);
       const r=(bigint>>16)&255, g=(bigint>>8)&255, b=bigint&255;
-      return rgba(${r}, ${g}, ${b}, ${alpha});
+      return `rgba(${r}, ${g}, ${b}, ${alpha})`;
     }
     function computeHeading(a, b) {
       // retorna heading entre dois pontos {lat,lng} em graus
@@ -258,10 +275,20 @@
     let pathCoordinates = [];            // caminho percorrido (linha azul)
     let pathPolyline = null;
     let tempDestination = null;          // POI temporário selecionado (objeto place)
-    let currentPositionIcon = null;
+    let currentPositionIconColor = '#0b74de';
     let poiDebounceTimer = null;
     let lastPOICenter = null; // evitar buscas repetidas muito próximas
     let POI_SEARCH_DISTANCE_THRESHOLD = 500; // metros
+
+    // GPS smoothing / filtering
+    let recentPositions = []; // guarda últimos N pontos para suavizar
+    const SMOOTH_WINDOW = 5; // média dos últimos 5 pontos
+    const MIN_MOVE_TO_RECORD = 2.5; // metros: ignora ruído menor que isso
+    const ROUTE_UPDATE_THROTTLE_MS = 3000; // não recalcular rota principal com muita frequência
+    let lastRouteUpdateAt = 0;
+
+    // marcador ping / search result
+    let searchPingMarker = null;
 
     // ---------- initMap (callback) ----------
     function initMap() {
@@ -292,12 +319,6 @@
 
       infoWindow = new google.maps.InfoWindow();
 
-      currentPositionIcon = {
-        url: 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png',
-        scaledSize: new google.maps.Size(32, 32),
-        anchor: new google.maps.Point(16, 16)
-      };
-
       placesService = new google.maps.places.PlacesService(map);
 
       // polyline do caminho percorrido (GPS breadcrumb) - cor mais viva
@@ -320,37 +341,114 @@
       console.log('Mapa inicializado.');
     }
 
+    // ---------- GPS helpers ----------
+    function haversineDistance(a, b) {
+      // a, b: {lat,lng} em graus -> retorna metros
+      const R = 6371000;
+      const toRad = x => x * Math.PI / 180;
+      const dLat = toRad(b.lat - a.lat);
+      const dLon = toRad(b.lng - a.lng);
+      const lat1 = toRad(a.lat);
+      const lat2 = toRad(b.lat);
+      const sinDlat = Math.sin(dLat/2);
+      const sinDlon = Math.sin(dLon/2);
+      const aa = sinDlat*sinDlat + Math.cos(lat1)*Math.cos(lat2)*sinDlon*sinDlon;
+      const c = 2 * Math.atan2(Math.sqrt(aa), Math.sqrt(1-aa));
+      return R * c;
+    }
+
+    function averagePositions(arr) {
+      if (!arr || arr.length === 0) return null;
+      const avg = arr.reduce((acc, p) => { acc.lat += p.lat; acc.lng += p.lng; return acc; }, {lat:0,lng:0});
+      return { lat: avg.lat / arr.length, lng: avg.lng / arr.length };
+    }
+
+    function buildRotatedMarkerIcon(color = currentPositionIconColor, rotation = 0) {
+      // simple SVG arrow marker as data URL, rotated using CSS transform is not available for marker,
+      // we'll rotate inside the SVG using transform
+      const svg = encodeURIComponent(`
+        <svg xmlns="http://www.w3.org/2000/svg" width="42" height="42" viewBox="0 0 24 24">
+          <g transform="rotate(${rotation},12,12)">
+            <path d="M12 2 L15 13 L12 11 L9 13 Z" fill="${color}" stroke="#ffffff" stroke-width="0.5"/>
+            <circle cx="12" cy="12" r="2" fill="#fff" />
+          </g>
+        </svg>
+      `);
+      return { url: `data:image/svg+xml;charset=UTF-8,${svg}`, scaledSize: new google.maps.Size(36,36), anchor: new google.maps.Point(18,18) };
+    }
+
     // ---------- GPS Tracking ----------
     function startGPSTracking() {
       if (!navigator.geolocation) { showToast('Geolocalização não suportada', true); return; }
       showToast('Iniciando rastreamento GPS...');
+      // limpar histórico recente
+      recentPositions = [];
+      pathCoordinates = [];
+      pathPolyline.setPath(pathCoordinates);
+
       watchId = navigator.geolocation.watchPosition(pos => {
         const lat = pos.coords.latitude, lng = pos.coords.longitude;
-        const p = { lat, lng };
+        const p = { lat, lng, timestamp: pos.timestamp || Date.now() };
 
+        // Se for o primeiro ponto, cria o marcador
         if (!currentPositionMarker) {
+          const icon = buildRotatedMarkerIcon(currentPositionIconColor, 0);
           currentPositionMarker = new google.maps.Marker({
-            position: p, map, icon: currentPositionIcon, title: 'Sua posição atual', zIndex: 1000
+            position: p,
+            map,
+            icon,
+            title: 'Sua posição atual',
+            zIndex: 1000
           });
-        } else {
-          currentPositionMarker.setPosition(p);
         }
 
-        // adicionar ao caminho percorrido
-        pathCoordinates.push(p);
+        // Filtro de ruído: ignorar movs pequenos (jitter)
+        if (pathCoordinates.length > 0) {
+          const last = pathCoordinates[pathCoordinates.length - 1];
+          const dist = haversineDistance(last, p);
+          if (dist < MIN_MOVE_TO_RECORD) {
+            // Ainda atualizamos o marker sem adicionar ao caminho se o tempo for muito grande? Ignorar.
+            // Atualizar posição do marker suavemente (para não travar)
+            currentPositionMarker.setPosition({ lat: p.lat, lng: p.lng });
+            return;
+          }
+        }
+
+        // adicionar à janela de suavização
+        recentPositions.push(p);
+        if (recentPositions.length > SMOOTH_WINDOW) recentPositions.shift();
+        const smoothPos = averagePositions(recentPositions);
+
+        // acrescentar ao caminho percorrido (após suavização)
+        pathCoordinates.push({ lat: smoothPos.lat, lng: smoothPos.lng });
         pathPolyline.setPath(pathCoordinates);
 
-        // centralizar no usuário para efeito "navegação"
-        followUser(p);
+        // calcular heading com os dois últimos pontos para rotacionar o ícone
+        if (pathCoordinates.length >= 2) {
+          const a = pathCoordinates[pathCoordinates.length - 2];
+          const b = pathCoordinates[pathCoordinates.length - 1];
+          const heading = computeHeading(a, b);
+          currentPositionMarker.setIcon(buildRotatedMarkerIcon(currentPositionIconColor, heading));
+        } else {
+          currentPositionMarker.setPosition(smoothPos);
+        }
+        currentPositionMarker.setPosition(smoothPos);
+
+        // centralizar e zoom estilo navegação (pode desligar se preferir)
+        followUser(smoothPos);
 
         // buscar POIs automaticamente (se necessário)
-        schedulePOISearch(new google.maps.LatLng(p.lat, p.lng));
+        schedulePOISearch(new google.maps.LatLng(smoothPos.lat, smoothPos.lng));
 
-        // se há rota temporária, recalcular a rota temporária a partir da posição atual
-        if (tempDestination) computeTempRoute(p, tempDestination);
-        else {
-          // reajustar rota principal a partir da posição atual para o destino final (sensação de navegação)
-          updateMainRouteFromCurrentPosition(p);
+        // Atualizar rota temporária/ principal com throttle
+        const now = Date.now();
+        if (tempDestination) {
+          computeTempRoute(smoothPos, tempDestination);
+        } else {
+          if (now - lastRouteUpdateAt > ROUTE_UPDATE_THROTTLE_MS) {
+            updateMainRouteFromCurrentPosition(smoothPos);
+            lastRouteUpdateAt = now;
+          }
         }
 
       }, err => {
@@ -363,7 +461,7 @@
         }
         showToast(msg, true);
         stopGPSTracking();
-      }, { enableHighAccuracy: true, maximumAge: 5000, timeout: 27000 });
+      }, { enableHighAccuracy: true, maximumAge: 2000, timeout: 27000 });
 
       const startBtn = document.getElementById('start-trip');
       startBtn.textContent = 'Parar Rastreamento';
@@ -401,8 +499,7 @@
     // recalcula a rota principal usando a posição atual como origem (preserva waypoints/destino)
     function updateMainRouteFromCurrentPosition(currentPos) {
       if (!places || places.length < 2) return;
-      // assumimos places[] contém a sequência original; vamos construir waypoints a partir do próximo ponto
-      // Para simplicidade, origin = currentPos, destination = last place, waypoints = intermediate places (mantemos todos para otimizar)
+      // origin = currentPos, destination = last place, waypoints = intermediate places
       const waypoints = places.slice(1, -1).map(p => ({ location: { lat: p.lat, lng: p.lng }, stopover: true }));
       const request = {
         origin: { lat: currentPos.lat, lng: currentPos.lng },
@@ -458,15 +555,16 @@
         const badgeBg = hexToRgba(category.color, .12);
         const div = document.createElement('div');
         div.className = 'place-item bg-white p-4 rounded-lg border border-gray-200';
-        div.innerHTML = 
+        // build innerHTML using template literal
+        div.innerHTML = `
           <div class="flex justify-between items-start">
             <div>
               <div class="flex items-center gap-2">
-                <h3 class="font-semibold text-travel-800">${place.name}</h3>
+                <h3 class="font-semibold text-travel-800">${escapeHtml(place.name)}</h3>
                 <span class="category-badge" style="background-color: ${badgeBg}; color: ${category.color};">${category.name}</span>
               </div>
-              ${place.value ? <p class="text-sm text-travel-600">${formatCurrency(place.value)}</p> : ''}
-              ${place.address ? <p class="text-xs text-gray-500 mt-1">${place.address}</p> : ''}
+              ${place.value ? `<p class="text-sm text-travel-600">${formatCurrency(Number(place.value) || 0)}</p>` : ''}
+              ${place.address ? `<p class="text-xs text-gray-500 mt-1">${escapeHtml(place.address)}</p>` : ''}
             </div>
             <div class="flex gap-2 items-center">
               <button data-index="${index}" title="Subir" class="move-up text-travel-600 hover:text-travel-800 p-1">
@@ -480,7 +578,7 @@
               </button>
             </div>
           </div>
-        ;
+        `;
         container.appendChild(div);
       });
       updateStats();
@@ -494,26 +592,41 @@
       generalExpenses.forEach((expense, index) => {
         const div = document.createElement('div');
         div.className = 'flex justify-between items-center bg-gray-50 p-3 rounded-lg';
-        div.innerHTML = 
+        div.innerHTML = `
           <div>
-            <p class="font-medium">${expense.title}</p>
+            <p class="font-medium">${escapeHtml(expense.title)}</p>
             <p class="text-xs text-gray-500">${new Date(expense.date).toLocaleDateString()}</p>
           </div>
           <div class="flex items-center gap-2">
-            <p class="font-medium">${formatCurrency(expense.amount)}</p>
+            <p class="font-medium">${formatCurrency(Number(expense.amount) || 0)}</p>
             <button data-index="${index}" class="delete-expense text-red-500 hover:text-red-700" title="Remover">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
             </button>
           </div>
-        ;
+        `;
         container.appendChild(div);
       });
       updateStats();
     }
 
+    // helper to escape html for safety when injecting to innerHTML
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
     // ---------- Rota (marcadores + directions) ----------
-    function updateRoute() {
+    function clearMapMarkers() {
       markers.forEach(m => m.setMap(null)); markers = [];
+    }
+
+    function updateRoute() {
+      clearMapMarkers();
 
       if (!places || places.length === 0) {
         directionsRendererMain.setMap(null);
@@ -526,24 +639,58 @@
 
       places.forEach((place, index) => {
         const category = categoryStyles[place.category] || categoryStyles.other;
-        const icon = { url: category.icon, scaledSize: new google.maps.Size(40,40), labelOrigin: new google.maps.Point(20,12) };
+        // saved markers should use the 'saved' style background color for label background,
+        // but keep the category icon when desired. To follow your request we use icon for category but
+        // slightly change label background to light-blue when saved (so it's visually 'saved')
+        const iconUrl = category.icon || categoryStyles.other.icon;
+        const icon = {
+          url: iconUrl,
+          scaledSize: new google.maps.Size(40,40),
+          labelOrigin: new google.maps.Point(20,12)
+        };
+
         const marker = new google.maps.Marker({
           position: { lat: place.lat, lng: place.lng },
           map,
-          label: { text: String(index+1), color: 'white', fontSize: '14px', fontWeight: 'bold' },
+          label: { text: String(index+1), color: '#ffffff', fontSize: '14px', fontWeight: 'bold' },
           icon
         });
+
         marker.addListener('click', () => {
-          infoWindow.setContent(
-            <div style="max-width:220px">
-              <h3 style="margin:0 0 4px 0;font-weight:700">${place.name}</h3>
-              <div style="color:${category.color};font-weight:600;margin-bottom:6px">${category.name}</div>
-              ${place.value ? <div style="margin-bottom:6px">${formatCurrency(place.value)}</div> : ''}
-              ${place.address ? <div style="font-size:12px;color:#6b7280">${place.address}</div> : ''}
-            </div>
-          );
+          const content = document.createElement('div');
+          content.style.maxWidth = '240px';
+
+          const title = document.createElement('h3');
+          title.style.margin = '0 0 4px 0';
+          title.style.fontWeight = '700';
+          title.textContent = place.name;
+          content.appendChild(title);
+
+          const catDiv = document.createElement('div');
+          catDiv.style.color = category.color;
+          catDiv.style.fontWeight = '600';
+          catDiv.style.marginBottom = '6px';
+          catDiv.textContent = category.name;
+          content.appendChild(catDiv);
+
+          if (place.value) {
+            const val = document.createElement('div');
+            val.style.marginBottom = '6px';
+            val.textContent = formatCurrency(Number(place.value) || 0);
+            content.appendChild(val);
+          }
+          if (place.address) {
+            const addr = document.createElement('div');
+            addr.style.fontSize = '12px';
+            addr.style.color = '#6b7280';
+            addr.textContent = place.address;
+            content.appendChild(addr);
+          }
+
+          infoWindow.setContent(content);
           infoWindow.open(map, marker);
         });
+
         markers.push(marker);
       });
 
@@ -569,7 +716,7 @@
             directionsRendererMain.setDirections(result);
             lastRouteResult = result;
             // salvar cópia para reverter caso use rota temporária
-            lastRouteResultSaved = JSON.parse(JSON.stringify(result));
+            try { lastRouteResultSaved = JSON.parse(JSON.stringify(result)); } catch (err) { lastRouteResultSaved = result; }
             try {
               const bounds = new google.maps.LatLngBounds();
               result.routes[0].legs.forEach(leg => { bounds.extend(leg.start_location); bounds.extend(leg.end_location); });
@@ -596,15 +743,15 @@
         const fromPlace = places[index] || { name: 'Ponto' }, toPlace = places[index+1] || { name: 'Destino' };
         const div = document.createElement('div');
         div.className = 'bg-gray-50 p-3 rounded-lg mb-2';
-        div.innerHTML = 
+        div.innerHTML = `
           <div class="flex justify-between items-center">
             <div>
-              <p class="font-medium">${fromPlace.name} → ${toPlace.name}</p>
+              <p class="font-medium">${escapeHtml(fromPlace.name)} → ${escapeHtml(toPlace.name)}</p>
               <p class="text-sm text-gray-600">${leg.distance.text} • ${leg.duration.text}</p>
             </div>
             <p class="text-travel-700 font-medium">${leg.duration.text}</p>
           </div>
-        ;
+        `;
         container.appendChild(div);
       });
     }
@@ -625,9 +772,9 @@
         fuelCost = fuelConsumption * fuelPrice;
       }
 
-      document.getElementById('total-distance').textContent = ${(totalDistance/1000).toFixed(1)} km;
+      document.getElementById('total-distance').textContent = `${(totalDistance/1000).toFixed(1)} km`;
       const hours = Math.floor(totalTime/3600); const minutes = Math.round((totalTime%3600)/60);
-      let timeText = ''; if(hours>0) timeText += ${hours} h ; timeText += ${minutes} min;
+      let timeText = ''; if(hours>0) timeText += `${hours} h `; timeText += `${minutes} min`;
       document.getElementById('total-time').textContent = timeText;
       document.getElementById('fuel-cost').textContent = formatCurrency(parseFloat(fuelCost)||0);
       const totalCost = placesCost + expensesCost + (fuelCost||0);
@@ -637,15 +784,12 @@
     // ---------- POIs (auto search) ----------
     // categorias: gas_station, lodging (hotel/motel), restaurant, supermarket, convenience_store, tourist_attraction
     function schedulePOISearch(centerLatLng) {
-      // debounce curto para evitar muitas requisições quando o centro do mapa se move frequentemente
       if (poiDebounceTimer) clearTimeout(poiDebounceTimer);
       poiDebounceTimer = setTimeout(() => {
-        // se já pesquisamos num centro próximo, pule
         if (lastPOICenter) {
           const last = lastPOICenter;
           const dist = google.maps.geometry.spherical.computeDistanceBetween(new google.maps.LatLng(last.lat,last.lng), centerLatLng);
           if (dist < POI_SEARCH_DISTANCE_THRESHOLD) {
-            // console.log('POI search skipped (nearby)'), dist;
             return;
           }
         }
@@ -654,7 +798,7 @@
     }
 
     function searchNearbyPOIs(center) {
-      if (!map || !placesService) { showToast('Serviço de lugares não disponível.', true); return; }
+      if (!map || !placesService) { /* showToast('Serviço de lugares não disponível.', true); */ return; }
       const centerLatLng = center instanceof google.maps.LatLng ? center : new google.maps.LatLng(center.lat, center.lng);
       lastPOICenter = { lat: centerLatLng.lat(), lng: centerLatLng.lng() };
 
@@ -664,14 +808,12 @@
       const typesToSearch = ['gas_station','lodging','restaurant','supermarket','convenience_store','tourist_attraction'];
       const radius = 4000; // 4 km por padrão
 
-      // realizar uma série de nearbySearch para cada tipo (limite de resultados por tipo)
       typesToSearch.forEach(type => {
         const req = { location: centerLatLng, radius, type };
         placesService.nearbySearch(req, (results, status) => {
           if (status === google.maps.places.PlacesServiceStatus.OK && results && results.length) {
             results.slice(0, 12).forEach(r => addPOIMarker(r, type));
           } else {
-            // pode ser ZERO_RESULTS, OVER_QUERY_LIMIT etc. Apenas logamos.
             // console.warn('POI search', type, status);
           }
         });
@@ -700,23 +842,55 @@
       });
 
       marker.addListener('click', () => {
-        const content = 
-          <div style="max-width:260px">
-            <h3 style="margin:0 0 6px 0;font-weight:700">${placeResult.name}</h3>
-            <div style="color:${style.color};font-weight:600;margin-bottom:6px">${style.name}</div>
-            ${placeResult.vicinity ? <div style="font-size:12px;color:#6b7280">${placeResult.vicinity}</div> : ''}
-            <div style="margin-top:8px">
-              <a href="#" data-place-id="${placeResult.place_id}" class="iw-btn go-btn">Ir até aqui</a>
-            </div>
-          </div>
-        ;
+        const content = document.createElement('div');
+        content.style.maxWidth = '260px';
+        const title = document.createElement('h3');
+        title.style.margin = '0 0 6px 0';
+        title.style.fontWeight = '700';
+        title.textContent = placeResult.name;
+        content.appendChild(title);
+
+        const catDiv = document.createElement('div');
+        catDiv.style.color = style.color;
+        catDiv.style.fontWeight = '600';
+        catDiv.style.marginBottom = '6px';
+        catDiv.textContent = style.name;
+        content.appendChild(catDiv);
+
+        if (placeResult.vicinity) {
+          const addr = document.createElement('div');
+          addr.style.fontSize = '12px';
+          addr.style.color = '#6b7280';
+          addr.textContent = placeResult.vicinity;
+          content.appendChild(addr);
+        }
+
+        const btnWrap = document.createElement('div');
+        btnWrap.style.marginTop = '8px';
+
+        const goBtn = document.createElement('a');
+        goBtn.href = '#';
+        goBtn.className = 'iw-btn go-btn';
+        goBtn.textContent = 'Ir até aqui';
+        btnWrap.appendChild(goBtn);
+
+        const saveBtn = document.createElement('a');
+        saveBtn.href = '#';
+        saveBtn.className = 'iw-btn';
+        saveBtn.style.marginLeft = '8px';
+        saveBtn.textContent = 'Salvar exato';
+        btnWrap.appendChild(saveBtn);
+
+        content.appendChild(btnWrap);
+
         infoWindow.setContent(content);
         infoWindow.open(map, marker);
 
         google.maps.event.addListenerOnce(infoWindow, 'domready', () => {
-          const goBtn = document.querySelector('.iw-btn.go-btn');
-          if (goBtn) {
-            goBtn.addEventListener('click', (ev) => {
+          const goButton = document.querySelector('.iw-btn.go-btn');
+          const saveButton = Array.from(document.querySelectorAll('.iw-btn')).find(el => el !== goButton);
+          if (goButton) {
+            goButton.addEventListener('click', (ev) => {
               ev.preventDefault();
               const poi = {
                 name: placeResult.name,
@@ -730,17 +904,72 @@
               infoWindow.close();
             });
           }
+          if (saveButton) {
+            saveButton.addEventListener('click', (ev) => {
+              ev.preventDefault();
+              // salvar o local exatamente (abre preenchendo campos no formulário para permitir editar valor/categoria)
+              if (placeResult.geometry && placeResult.geometry.location) {
+                const lat = placeResult.geometry.location.lat();
+                const lng = placeResult.geometry.location.lng();
+                document.getElementById('place-name').value = placeResult.name || '';
+                document.getElementById('search').value = placeResult.vicinity || placeResult.name || '';
+                document.getElementById('place-category').value = type || 'other';
+                // centrar e colocar um ping marker que permite salvar no local exato
+                placeSearchPing({ lat, lng, name: placeResult.name, address: placeResult.vicinity, category: type });
+                infoWindow.close();
+                showToast('Clique em "Adicionar Local" para salvar a posição exata ou ajuste o nome/valor.');
+              }
+            });
+          }
         });
       });
 
       poiMarkers.push(marker);
     }
 
+    // cria um ping visual (marker temporário) quando o usuário localiza algo na busca
+    function placeSearchPing(p) {
+      // remove ping anterior
+      if (searchPingMarker) { searchPingMarker.setMap(null); searchPingMarker = null; }
+      const el = document.createElement('div');
+      el.className = 'ping-circle';
+      // criar marker com icon via SVG ou via overlayView? Simples: usar Marker com dataURL SVG circular
+      const svg = encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36"><circle cx="18" cy="18" r="8" fill="#7dd3fc" stroke="#fff" stroke-width="2" /></svg>`);
+      const marker = new google.maps.Marker({
+        position: { lat: p.lat, lng: p.lng },
+        map,
+        title: p.name || 'Local encontrado',
+        icon: {
+          url: `data:image/svg+xml;charset=UTF-8,${svg}`,
+          scaledSize: new google.maps.Size(36,36),
+          anchor: new google.maps.Point(18,18)
+        },
+        zIndex: 1100
+      });
+
+      // clicar no ping preenche o formulário com latitude/longitude exatas e mantém o ping até salvar
+      marker.addListener('click', () => {
+        document.getElementById('place-name').value = p.name || '';
+        // preencher o campo de endereço com a versão passada
+        document.getElementById('search').value = p.address || '';
+        // opcional: armazenar lat/lng temporariamente em atributos do botão adicionar
+        marker.setAnimation(google.maps.Animation.BOUNCE);
+        // salvar a posição exata ao clicar no botão "Adicionar Local"
+        // (o handler de add-place lê map.getCenter quando não houver ping; nós alteramos para checar searchPingMarker)
+        showToast('Posição selecionada. Clique em "Adicionar Local" para salvar essa posição exata.');
+      });
+
+      searchPingMarker = marker;
+      // centrar e zoom
+      map.setCenter({ lat: p.lat, lng: p.lng });
+      map.setZoom(16);
+    }
+
     // ---------- Rota Temporária (Ir até aqui) ----------
     function setTemporaryDestination(poi) {
       tempDestination = poi;
       document.getElementById('abort-temp').style.display = 'inline-block';
-      showToast(Rota temporária definida para ${poi.name});
+      showToast(`Rota temporária definida para ${poi.name}`);
       const start = currentPositionMarker ? currentPositionMarker.getPosition() : map.getCenter();
       if (!start) { showToast('Posição inicial desconhecida para ir até aqui.', true); return; }
       const startLatLng = { lat: start.lat(), lng: start.lng() };
@@ -780,18 +1009,18 @@
       }
       try {
         const leg = routeResult.routes[0].legs[0];
-        html += 
+        html += `
           <div class="bg-green-50 p-3 rounded-lg mb-2">
             <div class="flex justify-between items-center">
               <div>
-                <p class="font-medium">Rota temporária → ${poi.name}</p>
+                <p class="font-medium">Rota temporária → ${escapeHtml(poi.name)}</p>
                 <p class="text-sm text-gray-600">${leg.distance.text} • ${leg.duration.text}</p>
               </div>
               <p class="text-travel-700 font-medium">${leg.duration.text}</p>
             </div>
             <div class="mt-2 text-xs text-gray-600">Se desejar, clique em <strong>Desistir</strong> para voltar à rota original.</div>
           </div>
-        ;
+        `;
       } catch (e) { console.warn(e); }
       container.innerHTML = html;
     }
@@ -802,7 +1031,11 @@
       document.getElementById('abort-temp').style.display = 'none';
       showToast('Voltando à rota original.');
       if (lastRouteResultSaved) {
-        lastRouteResult = JSON.parse(JSON.stringify(lastRouteResultSaved));
+        try {
+          lastRouteResult = JSON.parse(JSON.stringify(lastRouteResultSaved));
+        } catch(e) {
+          lastRouteResult = lastRouteResultSaved;
+        }
         directionsRendererMain.setMap(map);
         directionsRendererMain.setDirections(lastRouteResult);
         renderRouteDetails(lastRouteResult);
@@ -820,11 +1053,24 @@
         const category = document.getElementById('place-category').value;
         if (!name) { showToast('Por favor, digite um nome para o local', true); return; }
         if (!map) { showToast('Mapa ainda não carregado. Aguarde.', true); return; }
-        const center = map.getCenter();
+
+        // Se houver um ping de busca ativo, salve as coordenadas exatas do ping; senão use centro do mapa
+        let lat, lng;
+        if (searchPingMarker) {
+          const pos = searchPingMarker.getPosition();
+          lat = pos.lat(); lng = pos.lng();
+          // remover ping visual após salvar
+          searchPingMarker.setMap(null); searchPingMarker = null;
+        } else {
+          const center = map.getCenter();
+          lat = center ? center.lat() : -15.795;
+          lng = center ? center.lng() : -47.891;
+        }
+
         const newPlace = {
           name, value, category,
-          lat: center ? center.lat() : -15.795,
-          lng: center ? center.lng() : -47.891,
+          lat,
+          lng,
           address: document.getElementById('search').value || '',
           date: new Date().toISOString()
         };
@@ -837,7 +1083,7 @@
         if (!query) { showToast('Digite algo para pesquisar.', true); return; }
         if (!map || !google || !google.maps || !google.maps.places) { showToast('Serviço de lugares não disponível no momento.', true); return; }
         const service = new google.maps.places.PlacesService(map);
-        service.findPlaceFromQuery({ query, fields: ['name','geometry','formatted_address','types'] }, (results, status) => {
+        service.findPlaceFromQuery({ query, fields: ['name','geometry','formatted_address','types','place_id','vicinity'] }, (results, status) => {
           if (status === google.maps.places.PlacesServiceStatus.OK && results && results[0]) {
             const p = results[0];
             if (p.geometry && p.geometry.location) { map.setCenter(p.geometry.location); map.setZoom(15); }
@@ -851,7 +1097,12 @@
             else if (p.types && (p.types.includes('museum') || p.types.includes('art_gallery'))) category = 'museum';
             else if (p.types && (p.types.includes('shopping_mall') || p.types.includes('store'))) category = 'shopping';
             document.getElementById('place-category').value = category;
-            showToast('Local encontrado! Preencha os detalhes e adicione.');
+
+            // Criar ping visual azul claro (salvo) para permitir salvar o local exato (o usuário pode clicar no ping)
+            if (p.geometry && p.geometry.location) {
+              placeSearchPing({ lat: p.geometry.location.lat(), lng: p.geometry.location.lng(), name: p.name, address: p.formatted_address, category });
+            }
+            showToast('Local encontrado! Você pode salvar a posição exata clicando no ping e depois em "Adicionar Local".');
           } else {
             showToast('Local não encontrado. Tente outro termo de busca.', true);
           }
@@ -917,7 +1168,8 @@
 
       document.getElementById('abort-temp').addEventListener('click', () => { if (confirm('Deseja abandonar o destino temporário e voltar à rota original?')) abortTemporaryRoute(); });
 
-      // quando o usuário clicar em um POI no mapa, o addPOIMarker já lida com o evento "Ir até aqui"
+      // fechar infoWindow ao clicar no mapa
+      map && map.addListener && map.addListener('click', () => { infoWindow.close(); });
     }
 
     // ---------- carregar Google Maps script dinamicamente ----------
@@ -926,7 +1178,7 @@
         console.warn('Substitua YOUR_API_KEY_HERE pela sua chave do Google Maps.');
       }
       const script = document.createElement('script');
-      script.src = https://maps.googleapis.com/maps/api/js?key=$AIzaSyAPkjcgFgdopkeZN0GnvhOc787jrajJnWc&libraries=places,directions,geometry&callback=initMap;
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(GM_API_KEY)}&libraries=places,directions,geometry&callback=initMap`;
       script.async = true;
       script.defer = true;
       script.onerror = () => showToast('Falha ao carregar Google Maps. Verifique sua chave/API.', true);
@@ -935,5 +1187,5 @@
 
     window.addEventListener('DOMContentLoaded', loadGoogleMaps);
   </script>
-</body>
+  </body>
 </html>
