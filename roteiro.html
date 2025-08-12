@@ -963,11 +963,11 @@
 
     // ---------- carregar Google Maps script dinamicamente ----------
     function loadGoogleMaps() {
-      if (!GM_API_KEY || GM_API_KEY === 'YOUR_API_KEY_HERE') {
+      if (!GM_API_KEY || GM_API_KEY === 'AIzaSyAPkjcgFgdopkeZN0GnvhOc787jrajJnWc') {
         console.warn('Substitua YOUR_API_KEY_HERE pela sua chave do Google Maps. O mapa pode falhar sem a chave.');
       }
       const script = document.createElement('script');
-      script.src = `https://maps.googleapis.com/maps/api/js?key=$AIzaSyAPkjcgFgdopkeZN0GnvhOc787jrajJnWc&libraries=places,directions,geometry&callback=initMap`;
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${GM_API_KEY}&libraries=places,directions,geometry&callback=initMap`;
       script.async = true; script.defer = true;
       script.onerror = () => showToast('Falha ao carregar Google Maps. Verifique sua chave/API.', true);
       document.head.appendChild(script);
@@ -977,3 +977,4 @@
   </script>
 </body>
 </html>
+
