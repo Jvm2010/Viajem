@@ -41,6 +41,7 @@
     #abort-temp { display:none; }
     .iw-btn { display:inline-block; margin-top:6px; background:#0ea5e9; color:#fff; padding:6px 10px; border-radius:6px; text-decoration:none; font-weight:600; }
     .iw-btn.desist { background:#ef4444; }
+    .iw-btn.save { background:#10b981; }
   </style>
 </head>
 <body class="bg-travel-50">
@@ -207,7 +208,7 @@
 
   <script>
     // ---------------- CONFIG ----------------
-    const GM_API_KEY = 'YOUR_API_KEY_HERE'; // substitua pela sua chave ou use localStorage 'gm_api_key' ou ?gm_key=...
+    const GM_API_KEY = 'AIzaSyDwbThPtdCFKguYQggrrdJsiyJbPyDeKZc'; // substitua pela sua chave ou use localStorage 'gm_api_key' ou ?gm_key=...
     // categoria (mantive a maioria, mas alterei o hotel para ciano/teal para não confundir)
     const categoryStyles = {
       attraction: { color: '#ef4444', icon: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png', name: 'Atração' },
@@ -266,6 +267,7 @@
     let lastPOICenter = null;
     let POI_SEARCH_DISTANCE_THRESHOLD = 500; // metros
     let searchTempMarker = null;         // marcador azul claro da busca (draggable)
+    let mapClickMarker = null;           // marcador de clique no mapa
 
     // ---------- helper para ícone "carro" rotacionável ----------
     function createCarIcon(headingDeg = 0) {
@@ -295,6 +297,55 @@
         streetViewControl: false,
         gestureHandling: 'greedy',
         styles: [{ featureType: "poi", elementType: "labels", stylers: [{ visibility: "off" }] }]
+      });
+
+      // Adiciona listener para cliques no mapa
+      map.addListener('click', (e) => {
+        // Remove marcador anterior se existir
+        if (mapClickMarker) {
+          mapClickMarker.setMap(null);
+        }
+        
+        // Cria novo marcador no local clicado
+        mapClickMarker = new google.maps.Marker({
+          position: e.latLng,
+          map: map,
+          icon: {
+            url: 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png',
+            scaledSize: new google.maps.Size(36, 36)
+          },
+          draggable: true
+        });
+
+        // Abre infoWindow com opção de salvar
+        const content = `
+          <div style="max-width:220px">
+            <h3 style="margin:0 0 6px 0;font-weight:700">Novo Local</h3>
+            <div style="margin-bottom:6px">Clique no botão abaixo para adicionar este local</div>
+            <div style="margin-top:8px">
+              <a href="#" class="iw-btn save">Salvar este local</a>
+            </div>
+          </div>`;
+        
+        infoWindow.setContent(content);
+        infoWindow.open(map, mapClickMarker);
+
+        // Adiciona listener para o botão de salvar
+        google.maps.event.addListenerOnce(infoWindow, 'domready', () => {
+          const saveBtn = document.querySelector('.iw-btn.save');
+          if (saveBtn) {
+            saveBtn.addEventListener('click', (ev) => {
+              ev.preventDefault();
+              document.getElementById('place-name').focus();
+              document.getElementById('place-name').value = 'Novo Local';
+              const pos = mapClickMarker.getPosition();
+              document.getElementById('search').value = `Lat: ${pos.lat().toFixed(6)}, Lng: ${pos.lng().toFixed(6)}`;
+              infoWindow.close();
+              mapClickMarker.setMap(null);
+              mapClickMarker = null;
+            });
+          }
+        });
       });
 
       directionsService = new google.maps.DirectionsService();
@@ -719,6 +770,7 @@
             ${placeResult.vicinity ? `<div style="font-size:12px;color:#6b7280">${escapeHtml(placeResult.vicinity)}</div>` : ''}
             <div style="margin-top:8px">
               <a href="#" data-place-id="${placeResult.place_id}" class="iw-btn go-btn">Ir até aqui</a>
+              <a href="#" data-place-id="${placeResult.place_id}" class="iw-btn save">Salvar este local</a>
             </div>
           </div>`;
         infoWindow.setContent(content);
@@ -738,6 +790,23 @@
                 category: type
               };
               setTemporaryDestination(poi);
+              infoWindow.close();
+            });
+          }
+          
+          const saveBtn = document.querySelector('.iw-btn.save');
+          if (saveBtn) {
+            saveBtn.addEventListener('click', (ev) => {
+              ev.preventDefault();
+              document.getElementById('place-name').value = placeResult.name || '';
+              document.getElementById('place-value').value = '';
+              document.getElementById('search').value = placeResult.vicinity || placeResult.name || '';
+              
+              // Definir categoria automaticamente
+              if (type) {
+                document.getElementById('place-category').value = type;
+              }
+              
               infoWindow.close();
             });
           }
@@ -876,6 +945,9 @@
         if (searchTempMarker) {
           const p = searchTempMarker.getPosition();
           lat = p.lat(); lng = p.lng();
+        } else if (mapClickMarker) {
+          const p = mapClickMarker.getPosition();
+          lat = p.lat(); lng = p.lng();
         } else {
           const center = map.getCenter();
           lat = center ? center.lat() : -15.795;
@@ -890,6 +962,10 @@
         places.push(newPlace); saveData(); renderPlaces(); updateRoute(); showToast('Local adicionado com sucesso!');
         document.getElementById('place-name').value = ''; document.getElementById('place-value').value = ''; document.getElementById('search').value = '';
         clearSearchTempMarker();
+        if (mapClickMarker) {
+          mapClickMarker.setMap(null);
+          mapClickMarker = null;
+        }
       });
 
       document.getElementById('btn-search').addEventListener('click', () => {
@@ -971,7 +1047,13 @@
 
       document.getElementById('start-trip').addEventListener('click', () => {
         if (watchId) { stopGPSTracking(); showToast('Rastreamento parado'); }
-        else { startGPSTracking(); }
+        else { 
+          if (places.length === 0) {
+            showToast('Adicione pelo menos um local antes de iniciar a viagem', true);
+            return;
+          }
+          startGPSTracking(); 
+        }
       });
 
       document.getElementById('fuel-efficiency').addEventListener('change', updateStats);
@@ -1000,7 +1082,7 @@
         console.warn('Substitua YOUR_API_KEY_HERE pela sua chave do Google Maps, ou salve em localStorage["gm_api_key"], ou passe ?gm_key=...');
       }
       const script = document.createElement('script');
-      script.src = 'https://maps.googleapis.com/maps/api/js?key=AIzaSyDwbThPtdCFKguYQggrrdJsiyJbPyDeKZc&libraries=places,directions,geometry&callback=initMap';
+      script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyDwbThPtdCFKguYQggrrdJsiyJbPyDeKZc&libraries=places,directions,geometry&callback=initMap`;
       script.async = true;
       script.defer = true;
       script.onerror = () => showToast('Falha ao carregar Google Maps. Verifique sua chave/API.', true);
