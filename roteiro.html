@@ -926,7 +926,7 @@
         console.warn('Substitua YOUR_API_KEY_HERE pela sua chave do Google Maps.');
       }
       const script = document.createElement('script');
-      script.src = https://maps.googleapis.com/maps/api/js?key=${GM_API_KEY}&libraries=places,directions,geometry&callback=initMap;
+      script.src = https://maps.googleapis.com/maps/api/js?key=$AIzaSyDZZPLwxGSuBjzinFJSVyZVM-_y_2xDjCE&libraries=places,directions,geometry&callback=initMap;
       script.async = true;
       script.defer = true;
       script.onerror = () => showToast('Falha ao carregar Google Maps. Verifique sua chave/API.', true);
