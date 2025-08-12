@@ -962,29 +962,19 @@
     }
 
     // ---------- carregar Google Maps script dinamicamente ----------
-function loadGoogleMapsApi(apiKey, callbackName = 'initMap') {
-  return new Promise((resolve, reject) => {
-    if (document.getElementById('google-maps-script')) {
-      resolve();
-      return;
+  function loadGoogleMaps() {
+   if (!GM_API_KEY || GM_API_KEY === 'YOUR_API_KEY_HERE') {
+     console.warn('Substitua YOUR_API_KEY_HERE pela sua chave do Google Maps.');
+     }
+   const script = document.createElement('script');
+   script.src = `https://maps.googleapis.com/maps/api/js?key=${GM_API_KEY}&libraries=places,geometry&callback=initMap`;
+   script.async = true;
+  script.defer = true;
+   script.onerror = () => showToast('Falha ao carregar Google Maps. Verifique sua chave/API.', true);
+   document.head.appendChild(script);
     }
-    
-    const script = document.createElement('script');
-    script.id = 'google-maps-script';
-    // Corrigido: removi "directions" de libraries (directions não é biblioteca válida)
-    script.src = `https://maps.googleapis.com/maps/api/js?key=$AIzaSyAPkjcgFgdopkeZN0GnvhOc787jrajJnWc&libraries=places,geometry&callback=${callbackName}`;
-    script.async = true;
-    script.defer = true;
-    
-    script.onerror = (e) => reject(new Error('Failed to load Google Maps API'));
-    
-    window[callbackName] = () => {
-      resolve();
-    };
-    
-    document.head.appendChild(script);
-  });
-}
+
+ window.addEventListener('DOMContentLoaded', loadGoogleMaps);
   </script>
 </body>
 </html>
