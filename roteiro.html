@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
-  <title>Roteiro de Viagem — GPS & POIs</title>
+  <title>Roteiro de Viagem — GPS & POIs (Local)</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -30,32 +30,37 @@
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
   <style>
     body { font-family: 'Roboto', sans-serif; }
-    #map { height: 400px; width: 100%; border-radius: 16px; }
-    .place-item { transition: all .3s ease; }
-    .place-item:hover { transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgba(0,0,0,.1); }
-    .category-badge { display:inline-block; padding:.25rem .5rem; border-radius:9999px; font-size:.75rem; font-weight:500; }
+    #map { height: 460px; width: 100%; border-radius: 12px; }
+    .place-item { transition: all .2s ease; }
+    .place-item:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,0,0,0.06); }
+    .category-badge { display:inline-block; padding:.2rem .5rem; border-radius:9999px; font-size:.72rem; font-weight:600; }
     #start-trip.tracking { animation: pulse 2s infinite; }
-    @keyframes pulse { 0%{transform:scale(1)}50%{transform:scale(1.05)}100%{transform:scale(1)} }
-    .toast { position:fixed; bottom:20px; right:20px; padding:12px 24px; border-radius:8px; color:white; background-color:#0ea5e9; box-shadow:0 4px 6px rgba(0,0,0,.1); z-index:10000; transition:opacity .3s ease; }
+    @keyframes pulse { 0%{transform:scale(1)}50%{transform:scale(1.03)}100%{transform:scale(1)} }
+    .toast { position:fixed; bottom:20px; right:20px; padding:12px 18px; border-radius:8px; color:white; background-color:#0ea5e9; box-shadow:0 6px 18px rgba(2,6,23,.12); z-index:10000; transition:opacity .3s ease, transform .18s ease; }
     .toast.error{ background-color:#dc2626; }
-    #abort-temp { display:none; }
+    .pin-pulse { width:18px; height:18px; border-radius:50%; position:relative; box-shadow:0 0 0 rgba(0,0,0,0.1); }
+    .pulse-anim { animation: pulse2 1400ms infinite; border-radius:50%; }
+    @keyframes pulse2 { 0% { box-shadow: 0 0 0 0 rgba(14,165,233,0.6); } 70% { box-shadow: 0 0 0 18px rgba(14,165,233,0); } 100% { box-shadow: 0 0 0 0 rgba(14,165,233,0); } }
     .iw-btn { display:inline-block; margin-top:6px; background:#0ea5e9; color:#fff; padding:6px 10px; border-radius:6px; text-decoration:none; font-weight:600; }
     .iw-btn.desist { background:#ef4444; }
+    .small-muted { font-size:.82rem; color:#6b7280; }
+    /* pulse center circle for map (CSS marker fallback) */
+    .map-pulse { width:14px; height:14px; background:#aee6ff; border-radius:50%; border:2px solid #0ea5e9; box-shadow:0 0 0 rgba(14,165,233,0.15); }
   </style>
 </head>
 <body class="bg-travel-50">
-  <header class="bg-white shadow-sm sticky top-0 z-10">
+  <header class="bg-white shadow sticky top-0 z-20">
     <div class="container mx-auto px-4 py-3 flex justify-between items-center">
       <h1 class="text-2xl font-bold text-travel-700">Roteiro de Viagem</h1>
       <nav class="flex gap-4">
-        <a href="fotos.html" class="text-travel-600 font-medium">Fotos</a>
-        <a href="index.html" class="text-gray-500">Sair</a>
+        <a href="#" class="text-travel-600 font-medium">Fotos</a>
+        <a href="#" class="text-gray-500">Sair</a>
       </nav>
     </div>
   </header>
 
-  <main class="container mx-auto px-4 py-6 max-w-3xl">
-    <!-- Configurações do Veículo -->
+  <main class="container mx-auto px-4 py-6 max-w-4xl">
+
     <div class="card bg-white p-4 mb-6 shadow-md rounded-xl">
       <h2 class="text-lg font-semibold text-travel-800 mb-3">Configurações do Veículo</h2>
       <div class="grid grid-cols-2 gap-4">
@@ -70,31 +75,21 @@
       </div>
     </div>
 
-    <!-- Mapa Google -->
     <div class="card bg-white p-4 mb-6 shadow-md rounded-xl">
       <h2 class="text-lg font-semibold text-travel-800 mb-3">Mapa da Viagem</h2>
       <div id="map"></div>
       <div class="flex justify-between mt-3 items-center">
         <div>
-          <button id="start-trip" type="button" class="bg-travel-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-travel-700 transition mr-2">
-            Iniciar Viagem
-          </button>
-          <button id="optimize-route" type="button" class="bg-travel-100 text-travel-700 px-4 py-2 rounded-lg font-medium hover:bg-travel-200 transition">
-            Otimizar Rota
-          </button>
-          <button id="abort-temp" type="button" class="ml-2 bg-red-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-red-700 transition">
-            Desistir (Voltar à Rota)
-          </button>
+          <button id="start-trip" type="button" class="bg-travel-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-travel-700 transition mr-2">Iniciar Viagem</button>
+          <button id="optimize-route" type="button" class="bg-travel-100 text-travel-700 px-4 py-2 rounded-lg font-medium hover:bg-travel-200 transition">Otimizar Rota</button>
+          <button id="abort-temp" type="button" class="ml-2 bg-red-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-red-700 transition" style="display:none">Desistir (Voltar à Rota)</button>
         </div>
         <div>
-          <button id="clear-route" type="button" class="text-red-500 px-4 py-2 rounded-lg border border-red-200 hover:bg-red-50 transition">
-            Limpar Tudo
-          </button>
+          <button id="clear-route" type="button" class="text-red-500 px-4 py-2 rounded-lg border border-red-200 hover:bg-red-50 transition">Limpar Tudo</button>
         </div>
       </div>
     </div>
 
-    <!-- Adicionar Local -->
     <div class="card bg-white p-5 mb-6 shadow-md rounded-xl">
       <h2 class="text-lg font-semibold text-travel-800 mb-4">Adicionar Local</h2>
       <div class="space-y-4">
@@ -103,9 +98,7 @@
           <div class="relative">
             <input id="search" type="text" class="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-travel-300 focus:border-travel-300" placeholder="Digite o nome de um local">
             <button id="btn-search" type="button" class="absolute right-2 top-2 bg-travel-500 text-white p-2 rounded-lg">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" />
-              </svg>
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/></svg>
             </button>
           </div>
         </div>
@@ -134,19 +127,22 @@
           </select>
         </div>
 
-        <button id="add-place" type="button" class="w-full bg-travel-600 text-white py-3 rounded-lg font-medium hover:bg-travel-700 transition">
-          Adicionar Local
-        </button>
+        <button id="add-place" type="button" class="w-full bg-travel-600 text-white py-3 rounded-lg font-medium hover:bg-travel-700 transition">Adicionar Local</button>
+
+        <div id="pin-actions" class="flex gap-2 items-center mt-2" style="display:none">
+          <button id="save-exact" class="bg-travel-600 text-white px-3 py-2 rounded">Salvar localização exata</button>
+          <button id="cancel-pin" class="bg-gray-100 text-gray-700 px-3 py-2 rounded">Cancelar</button>
+          <div class="small-muted">Você pode arrastar o pino para ajustar o ponto antes de salvar.</div>
+        </div>
+
       </div>
     </div>
 
-    <!-- Locais Salvos -->
     <div class="card bg-white p-5 mb-6 shadow-md rounded-xl">
       <h2 class="text-lg font-semibold text-travel-800 mb-4">Locais Salvos</h2>
       <div id="places-list" class="space-y-3"></div>
     </div>
 
-    <!-- Gastos Gerais -->
     <div class="card bg-white p-5 mb-6 shadow-md rounded-xl">
       <h2 class="text-lg font-semibold text-travel-800 mb-4">Gastos Gerais</h2>
       <div id="expenses-list" class="space-y-3 mb-4"></div>
@@ -160,14 +156,11 @@
           <input id="expense-amount" type="number" min="0" step="0.01" class="w-full p-3 border border-gray-200 rounded-lg">
         </div>
         <div class="flex items-end">
-          <button id="add-expense" type="button" class="w-full bg-travel-600 text-white py-3 rounded-lg font-medium hover:bg-travel-700 transition">
-            Adicionar
-          </button>
+          <button id="add-expense" type="button" class="w-full bg-travel-600 text-white py-3 rounded-lg font-medium hover:bg-travel-700 transition">Adicionar</button>
         </div>
       </div>
     </div>
 
-    <!-- Resumo Completo -->
     <div class="card bg-white p-5 shadow-md rounded-xl">
       <h2 class="text-lg font-semibold text-travel-800 mb-4">Resumo da Viagem</h2>
       <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
@@ -202,42 +195,47 @@
 
       <div id="route-details" class="space-y-2"></div>
     </div>
+
   </main>
 
   <script>
     // ---------------- CONFIG ----------------
     const GM_API_KEY = 'YOUR_API_KEY_HERE'; // substitua pela sua chave
 
+    // cores e ícones por categoria (hotéis com cor distinta: roxo)
     const categoryStyles = {
       attraction: { color: '#ef4444', icon: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png', name: 'Atração' },
       park:       { color: '#10b981', icon: 'https://maps.google.com/mapfiles/ms/icons/green-dot.png', name: 'Parque' },
-      hotel:      { color: '#3b82f6', icon: 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png', name: 'Hotel' },
-      motel:      { color: '#8b5cf6', icon: 'https://maps.google.com/mapfiles/ms/icons/purple-dot.png', name: 'Motel' },
+      hotel:      { color: '#8b5cf6', icon: 'https://maps.google.com/mapfiles/ms/icons/purple-dot.png', name: 'Hotel' },
+      motel:      { color: '#7c3aed', icon: 'https://maps.google.com/mapfiles/ms/icons/purple-dot.png', name: 'Motel' },
       restaurant: { color: '#f97316', icon: 'https://maps.google.com/mapfiles/ms/icons/orange-dot.png', name: 'Restaurante' },
       gas_station:{ color: '#f59e0b', icon: 'https://maps.google.com/mapfiles/ms/icons/yellow-dot.png', name: 'Posto' },
       supermarket:{ color: '#a3e635', icon: 'https://maps.google.com/mapfiles/ms/icons/lightgreen-dot.png', name: 'Mercado' },
       museum:     { color: '#f59e0b', icon: 'https://maps.google.com/mapfiles/ms/icons/yellow-dot.png', name: 'Museu' },
-      shopping:   { color: '#8b5cf6', icon: 'https://maps.google.com/mapfiles/ms/icons/purple-dot.png', name: 'Compras' },
+      shopping:   { color: '#06b6d4', icon: 'https://maps.google.com/mapfiles/ms/icons/ltblue-dot.png', name: 'Compras' },
       other:      { color: '#6b7280', icon: 'https://maps.google.com/mapfiles/ms/icons/pink-dot.png', name: 'Outro' }
     };
 
     // utils
     function showToast(message, isError = false) {
       const toast = document.createElement('div');
-      toast.className = toast ${isError ? 'error' : ''};
+      toast.className = 'toast' + (isError ? ' error' : '');
       toast.textContent = message;
       document.body.appendChild(toast);
-      setTimeout(() => { toast.style.opacity = '0'; setTimeout(()=>toast.remove(),300); }, 3000);
+      setTimeout(() => { toast.style.opacity = '0'; toast.style.transform = 'translateY(6px)'; setTimeout(()=>toast.remove(),300); }, 3200);
     }
-    function formatCurrency(value) { return value === 0 ? 'R$ 0,00' : value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); }
+
+    function formatCurrency(value) { return (isNaN(value) || value === 0) ? 'R$ 0,00' : value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); }
+
     function hexToRgba(hex, alpha=1) {
-      if(!hex) return rgba(0,0,0,${alpha});
-      const h = hex.replace('#',''); const bigint = parseInt(h,16);
+      if(!hex) return `rgba(0,0,0,${alpha})`;
+      const h = hex.replace('#','');
+      const bigint = parseInt(h,16);
       const r=(bigint>>16)&255, g=(bigint>>8)&255, b=bigint&255;
-      return rgba(${r}, ${g}, ${b}, ${alpha});
+      return `rgba(${r}, ${g}, ${b}, ${alpha})`;
     }
+
     function computeHeading(a, b) {
-      // retorna heading entre dois pontos {lat,lng} em graus
       const toRad = deg => deg * Math.PI / 180;
       const toDeg = rad => rad * 180 / Math.PI;
       const lat1 = toRad(a.lat), lat2 = toRad(b.lat);
@@ -261,7 +259,9 @@
     let currentPositionIcon = null;
     let poiDebounceTimer = null;
     let lastPOICenter = null; // evitar buscas repetidas muito próximas
-    let POI_SEARCH_DISTANCE_THRESHOLD = 500; // metros
+    const POI_SEARCH_DISTANCE_THRESHOLD = 500; // metros
+    let tempPinMarker = null; // pino editável para salvar localização exata
+    let isPinMode = false;
 
     // ---------- initMap (callback) ----------
     function initMap() {
@@ -277,13 +277,11 @@
       });
 
       directionsService = new google.maps.DirectionsService();
-      // ROTA PRINCIPAL: cor azul (visível)
       directionsRendererMain = new google.maps.DirectionsRenderer({
         map: map,
         suppressMarkers: true,
-        polylineOptions: { strokeColor: '#0ea5e9', strokeOpacity: 0.95, strokeWeight: 6 } // cor ajustada
+        polylineOptions: { strokeColor: '#0ea5e9', strokeOpacity: 0.95, strokeWeight: 6 }
       });
-      // ROTA TEMP: cor verde
       directionsRendererTemp = new google.maps.DirectionsRenderer({
         map: map,
         suppressMarkers: true,
@@ -294,33 +292,36 @@
 
       currentPositionIcon = {
         url: 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png',
-        scaledSize: new google.maps.Size(32, 32),
-        anchor: new google.maps.Point(16, 16)
+        scaledSize: new google.maps.Size(36, 36),
+        anchor: new google.maps.Point(18, 18)
       };
 
       placesService = new google.maps.places.PlacesService(map);
 
-      // polyline do caminho percorrido (GPS breadcrumb) - cor mais viva
       pathPolyline = new google.maps.Polyline({
         path: pathCoordinates,
         geodesic: true,
-        strokeColor: '#0b74de', // caminho percorrido cor azul vivo
+        strokeColor: '#0b74de',
         strokeOpacity: 1.0,
         strokeWeight: 4,
         map
       });
 
-      // listeners e dados
       loadData();
       setupEventListeners();
 
-      // buscar POIs sempre que o centro do mapa mudar (debounce)
       map.addListener('idle', () => { schedulePOISearch(map.getCenter()); });
+
+      map.addListener('click', (e) => {
+        if (isPinMode) {
+          placeTempPin(e.latLng);
+        }
+      });
 
       console.log('Mapa inicializado.');
     }
 
-    // ---------- GPS Tracking ----------
+    // ---------- GPS Tracking (usando Directions para recalcular dinamicamente) ----------
     function startGPSTracking() {
       if (!navigator.geolocation) { showToast('Geolocalização não suportada', true); return; }
       showToast('Iniciando rastreamento GPS...');
@@ -329,9 +330,7 @@
         const p = { lat, lng };
 
         if (!currentPositionMarker) {
-          currentPositionMarker = new google.maps.Marker({
-            position: p, map, icon: currentPositionIcon, title: 'Sua posição atual', zIndex: 1000
-          });
+          currentPositionMarker = new google.maps.Marker({ position: p, map, icon: currentPositionIcon, title: 'Sua posição atual', zIndex: 1000 });
         } else {
           currentPositionMarker.setPosition(p);
         }
@@ -340,18 +339,19 @@
         pathCoordinates.push(p);
         pathPolyline.setPath(pathCoordinates);
 
-        // centralizar no usuário para efeito "navegação"
+        // centralizar suavemente
         followUser(p);
 
         // buscar POIs automaticamente (se necessário)
         schedulePOISearch(new google.maps.LatLng(p.lat, p.lng));
 
-        // se há rota temporária, recalcular a rota temporária a partir da posição atual
-        if (tempDestination) computeTempRoute(p, tempDestination);
-        else {
-          // reajustar rota principal a partir da posição atual para o destino final (sensação de navegação)
+        // recalcular rota principal a partir da posição atual se existir rota
+        if (lastRouteResult && places && places.length >= 2) {
           updateMainRouteFromCurrentPosition(p);
         }
+
+        // se há rota temporária, recalcular a rota temporária a partir da posição atual
+        if (tempDestination) computeTempRoute(p, tempDestination);
 
       }, err => {
         console.warn('GPS error', err);
@@ -363,7 +363,7 @@
         }
         showToast(msg, true);
         stopGPSTracking();
-      }, { enableHighAccuracy: true, maximumAge: 5000, timeout: 27000 });
+      }, { enableHighAccuracy: true, maximumAge: 3000, timeout: 30000 });
 
       const startBtn = document.getElementById('start-trip');
       startBtn.textContent = 'Parar Rastreamento';
@@ -381,12 +381,8 @@
 
     function followUser(pos) {
       try {
-        // pan suave para posição atual
         map.panTo(new google.maps.LatLng(pos.lat, pos.lng));
-        // zoom leve para estilo navegação
         if (map.getZoom() < 15) map.setZoom(15);
-
-        // tentar ajustar heading se tivermos pelo menos 2 pontos (alguns mapas suportam setHeading)
         if (pathCoordinates.length >= 2) {
           const a = pathCoordinates[pathCoordinates.length - 2];
           const b = pathCoordinates[pathCoordinates.length - 1];
@@ -400,30 +396,33 @@
 
     // recalcula a rota principal usando a posição atual como origem (preserva waypoints/destino)
     function updateMainRouteFromCurrentPosition(currentPos) {
-      if (!places || places.length < 2) return;
-      // assumimos places[] contém a sequência original; vamos construir waypoints a partir do próximo ponto
-      // Para simplicidade, origin = currentPos, destination = last place, waypoints = intermediate places (mantemos todos para otimizar)
-      const waypoints = places.slice(1, -1).map(p => ({ location: { lat: p.lat, lng: p.lng }, stopover: true }));
-      const request = {
-        origin: { lat: currentPos.lat, lng: currentPos.lng },
-        destination: { lat: places[places.length -1].lat, lng: places[places.length -1].lng },
-        waypoints,
-        travelMode: google.maps.TravelMode.DRIVING,
-        optimizeWaypoints: true
-      };
-      directionsService.route(request, (result, status) => {
-        if (status === 'OK') {
-          directionsRendererMain.setMap(map);
-          directionsRendererMain.setDirections(result);
-          lastRouteResult = result;
-          // not replacing lastRouteResultSaved here - keep original saved route for reversion if needed
-          renderRouteDetails(result);
-          updateStats();
-        } else {
-          // não exibir toast toda vez para economizar notificações
-          console.warn('updateMainRouteFromCurrentPosition status', status);
-        }
-      });
+      try {
+        if (!places || places.length < 2) return;
+
+        // origin = current position; destination = last place; waypoints = places between current index and last
+        const destination = places[places.length -1];
+        const waypoints = places.slice(1, -1).map(p => ({ location: { lat: p.lat, lng: p.lng }, stopover: true }));
+
+        const request = {
+          origin: { lat: currentPos.lat, lng: currentPos.lng },
+          destination: { lat: destination.lat, lng: destination.lng },
+          waypoints,
+          travelMode: google.maps.TravelMode.DRIVING,
+          optimizeWaypoints: true
+        };
+
+        directionsService.route(request, (result, status) => {
+          if (status === 'OK') {
+            directionsRendererMain.setMap(map);
+            directionsRendererMain.setDirections(result);
+            lastRouteResult = result;
+            renderRouteDetails(result);
+            updateStats();
+          } else {
+            console.warn('updateMainRouteFromCurrentPosition status', status);
+          }
+        });
+      } catch (e) { console.warn('updateMainRouteFromCurrentPosition error', e); }
     }
 
     // ---------- Persistência ----------
@@ -436,7 +435,7 @@
       } catch (err) { console.warn('Erro parse localStorage', err); places = []; generalExpenses = []; }
       renderPlaces();
       renderExpenses();
-      updateRoute(); // tenta renderizar rota se houver places
+      updateRoute();
     }
 
     function saveData() {
@@ -453,36 +452,42 @@
         container.innerHTML = '<div class="text-center py-4 text-gray-500">Nenhum local adicionado ainda</div>';
         updateStats(); return;
       }
+
       places.forEach((place, index) => {
         const category = categoryStyles[place.category] || categoryStyles.other;
         const badgeBg = hexToRgba(category.color, .12);
         const div = document.createElement('div');
-        div.className = 'place-item bg-white p-4 rounded-lg border border-gray-200';
-        div.innerHTML = 
-          <div class="flex justify-between items-start">
-            <div>
-              <div class="flex items-center gap-2">
-                <h3 class="font-semibold text-travel-800">${place.name}</h3>
-                <span class="category-badge" style="background-color: ${badgeBg}; color: ${category.color};">${category.name}</span>
-              </div>
-              ${place.value ? <p class="text-sm text-travel-600">${formatCurrency(place.value)}</p> : ''}
-              ${place.address ? <p class="text-xs text-gray-500 mt-1">${place.address}</p> : ''}
-            </div>
-            <div class="flex gap-2 items-center">
-              <button data-index="${index}" title="Subir" class="move-up text-travel-600 hover:text-travel-800 p-1">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M10 3l5 6H5l5-6z"/></svg>
-              </button>
-              <button data-index="${index}" title="Descer" class="move-down text-travel-600 hover:text-travel-800 p-1">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M10 17l-5-6h10l-5 6z"/></svg>
-              </button>
-              <button data-index="${index}" title="Remover" class="delete-place text-red-500 hover:text-red-700 p-1">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
-              </button>
-            </div>
+        div.className = 'place-item bg-white p-4 rounded-lg border border-gray-200 flex justify-between items-start';
+
+        const left = document.createElement('div');
+        left.innerHTML = `
+          <div class="flex items-center gap-2">
+            <h3 class="font-semibold text-travel-800">${place.name}</h3>
+            <span class="category-badge" style="background-color: ${badgeBg}; color: ${category.color};">${category.name}</span>
           </div>
-        ;
+          ${place.value ? `<p class="text-sm text-travel-600">${formatCurrency(place.value)}</p>` : ''}
+          ${place.address ? `<p class="text-xs text-gray-500 mt-1">${place.address}</p>` : ''}
+        `;
+
+        const right = document.createElement('div');
+        right.className = 'flex gap-2 items-center';
+        right.innerHTML = `
+          <button data-index="${index}" title="Subir" class="move-up text-travel-600 hover:text-travel-800 p-1">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M10 3l5 6H5l5-6z"/></svg>
+          </button>
+          <button data-index="${index}" title="Descer" class="move-down text-travel-600 hover:text-travel-800 p-1">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M10 17l-5-6h10l-5 6z"/></svg>
+          </button>
+          <button data-index="${index}" title="Remover" class="delete-place text-red-500 hover:text-red-700 p-1">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+          </button>
+        `;
+
+        div.appendChild(left);
+        div.appendChild(right);
         container.appendChild(div);
       });
+
       updateStats();
     }
 
@@ -494,7 +499,7 @@
       generalExpenses.forEach((expense, index) => {
         const div = document.createElement('div');
         div.className = 'flex justify-between items-center bg-gray-50 p-3 rounded-lg';
-        div.innerHTML = 
+        div.innerHTML = `
           <div>
             <p class="font-medium">${expense.title}</p>
             <p class="text-xs text-gray-500">${new Date(expense.date).toLocaleDateString()}</p>
@@ -505,15 +510,17 @@
               <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
             </button>
           </div>
-        ;
+        `;
         container.appendChild(div);
       });
       updateStats();
     }
 
     // ---------- Rota (marcadores + directions) ----------
+    function clearMarkers(arr) { arr.forEach(m => { if (m && m.setMap) m.setMap(null); }); }
+
     function updateRoute() {
-      markers.forEach(m => m.setMap(null)); markers = [];
+      clearMarkers(markers); markers = [];
 
       if (!places || places.length === 0) {
         directionsRendererMain.setMap(null);
@@ -524,26 +531,35 @@
         return;
       }
 
+      // adicionar marcadores listados (azul claro)
       places.forEach((place, index) => {
         const category = categoryStyles[place.category] || categoryStyles.other;
-        const icon = { url: category.icon, scaledSize: new google.maps.Size(40,40), labelOrigin: new google.maps.Point(20,12) };
+        const iconUrl = category.icon || 'https://maps.google.com/mapfiles/ms/icons/ltblue-dot.png';
+        const icon = {
+          url: iconUrl,
+          scaledSize: new google.maps.Size(36,36),
+          labelOrigin: new google.maps.Point(18, 10)
+        };
+
         const marker = new google.maps.Marker({
           position: { lat: place.lat, lng: place.lng },
           map,
-          label: { text: String(index+1), color: 'white', fontSize: '14px', fontWeight: 'bold' },
+          label: { text: String(index + 1), color: '#fff', fontSize: '12px', fontWeight: '700' },
           icon
         });
+
         marker.addListener('click', () => {
-          infoWindow.setContent(
-            <div style="max-width:220px">
-              <h3 style="margin:0 0 4px 0;font-weight:700">${place.name}</h3>
-              <div style="color:${category.color};font-weight:600;margin-bottom:6px">${category.name}</div>
-              ${place.value ? <div style="margin-bottom:6px">${formatCurrency(place.value)}</div> : ''}
-              ${place.address ? <div style="font-size:12px;color:#6b7280">${place.address}</div> : ''}
-            </div>
-          );
+          const content = document.createElement('div');
+          content.style.maxWidth = '240px';
+          const h = document.createElement('h3'); h.style.margin='0 0 4px 0'; h.style.fontWeight='700'; h.textContent = place.name;
+          const c = document.createElement('div'); c.style.color = category.color; c.style.fontWeight = '600'; c.style.marginBottom = '6px'; c.textContent = category.name;
+          content.appendChild(h); content.appendChild(c);
+          if (place.value) { const v = document.createElement('div'); v.style.marginBottom='6px'; v.textContent = formatCurrency(place.value); content.appendChild(v); }
+          if (place.address) { const a = document.createElement('div'); a.style.fontSize='12px'; a.style.color='#6b7280'; a.textContent = place.address; content.appendChild(a); }
+          infoWindow.setContent(content);
           infoWindow.open(map, marker);
         });
+
         markers.push(marker);
       });
 
@@ -568,7 +584,6 @@
             directionsRendererMain.setMap(map);
             directionsRendererMain.setDirections(result);
             lastRouteResult = result;
-            // salvar cópia para reverter caso use rota temporária
             lastRouteResultSaved = JSON.parse(JSON.stringify(result));
             try {
               const bounds = new google.maps.LatLngBounds();
@@ -588,15 +603,13 @@
 
     function renderRouteDetails(routeResult) {
       const container = document.getElementById('route-details'); container.innerHTML = '<h3 class="font-semibold mb-2">Detalhes do Percurso:</h3>';
-      if (!routeResult || !routeResult.routes || !routeResult.routes[0]) {
-        container.innerHTML += '<div class="text-gray-500">Sem detalhes de rota.</div>'; return;
-      }
+      if (!routeResult || !routeResult.routes || !routeResult.routes[0]) { container.innerHTML += '<div class="text-gray-500">Sem detalhes de rota.</div>'; return; }
       const legs = routeResult.routes[0].legs || [];
       legs.forEach((leg,index) => {
         const fromPlace = places[index] || { name: 'Ponto' }, toPlace = places[index+1] || { name: 'Destino' };
         const div = document.createElement('div');
         div.className = 'bg-gray-50 p-3 rounded-lg mb-2';
-        div.innerHTML = 
+        div.innerHTML = `
           <div class="flex justify-between items-center">
             <div>
               <p class="font-medium">${fromPlace.name} → ${toPlace.name}</p>
@@ -604,7 +617,7 @@
             </div>
             <p class="text-travel-700 font-medium">${leg.duration.text}</p>
           </div>
-        ;
+        `;
         container.appendChild(div);
       });
     }
@@ -625,9 +638,11 @@
         fuelCost = fuelConsumption * fuelPrice;
       }
 
-      document.getElementById('total-distance').textContent = ${(totalDistance/1000).toFixed(1)} km;
+      document.getElementById('total-distance').textContent = (totalDistance/1000).toFixed(1) + ' km';
       const hours = Math.floor(totalTime/3600); const minutes = Math.round((totalTime%3600)/60);
-      let timeText = ''; if(hours>0) timeText += ${hours} h ; timeText += ${minutes} min;
+      let timeText = '';
+      if(hours>0) timeText += `${hours} h `;
+      timeText += `${minutes} min`;
       document.getElementById('total-time').textContent = timeText;
       document.getElementById('fuel-cost').textContent = formatCurrency(parseFloat(fuelCost)||0);
       const totalCost = placesCost + expensesCost + (fuelCost||0);
@@ -635,44 +650,33 @@
     }
 
     // ---------- POIs (auto search) ----------
-    // categorias: gas_station, lodging (hotel/motel), restaurant, supermarket, convenience_store, tourist_attraction
     function schedulePOISearch(centerLatLng) {
-      // debounce curto para evitar muitas requisições quando o centro do mapa se move frequentemente
       if (poiDebounceTimer) clearTimeout(poiDebounceTimer);
       poiDebounceTimer = setTimeout(() => {
-        // se já pesquisamos num centro próximo, pule
         if (lastPOICenter) {
           const last = lastPOICenter;
           const dist = google.maps.geometry.spherical.computeDistanceBetween(new google.maps.LatLng(last.lat,last.lng), centerLatLng);
-          if (dist < POI_SEARCH_DISTANCE_THRESHOLD) {
-            // console.log('POI search skipped (nearby)'), dist;
-            return;
-          }
+          if (dist < POI_SEARCH_DISTANCE_THRESHOLD) { return; }
         }
         searchNearbyPOIs(centerLatLng);
       }, 800);
     }
 
     function searchNearbyPOIs(center) {
-      if (!map || !placesService) { showToast('Serviço de lugares não disponível.', true); return; }
+      if (!map || !placesService) { return; }
       const centerLatLng = center instanceof google.maps.LatLng ? center : new google.maps.LatLng(center.lat, center.lng);
       lastPOICenter = { lat: centerLatLng.lat(), lng: centerLatLng.lng() };
 
-      // limpar POI markers antigos
       poiMarkers.forEach(m => m.setMap(null)); poiMarkers = [];
 
       const typesToSearch = ['gas_station','lodging','restaurant','supermarket','convenience_store','tourist_attraction'];
-      const radius = 4000; // 4 km por padrão
+      const radius = 4000;
 
-      // realizar uma série de nearbySearch para cada tipo (limite de resultados por tipo)
       typesToSearch.forEach(type => {
         const req = { location: centerLatLng, radius, type };
         placesService.nearbySearch(req, (results, status) => {
           if (status === google.maps.places.PlacesServiceStatus.OK && results && results.length) {
             results.slice(0, 12).forEach(r => addPOIMarker(r, type));
-          } else {
-            // pode ser ZERO_RESULTS, OVER_QUERY_LIMIT etc. Apenas logamos.
-            // console.warn('POI search', type, status);
           }
         });
       });
@@ -691,32 +695,26 @@
       const style = categoryStyles[type] || categoryStyles.other;
       const icon = { url: style.icon, scaledSize: new google.maps.Size(36,36) };
 
-      const marker = new google.maps.Marker({
-        position: placeResult.geometry.location,
-        map,
-        title: placeResult.name,
-        icon,
-        zIndex: 900
-      });
+      const marker = new google.maps.Marker({ position: placeResult.geometry.location, map, title: placeResult.name, icon, zIndex: 900 });
 
       marker.addListener('click', () => {
-        const content = 
-          <div style="max-width:260px">
-            <h3 style="margin:0 0 6px 0;font-weight:700">${placeResult.name}</h3>
-            <div style="color:${style.color};font-weight:600;margin-bottom:6px">${style.name}</div>
-            ${placeResult.vicinity ? <div style="font-size:12px;color:#6b7280">${placeResult.vicinity}</div> : ''}
-            <div style="margin-top:8px">
-              <a href="#" data-place-id="${placeResult.place_id}" class="iw-btn go-btn">Ir até aqui</a>
-            </div>
-          </div>
-        ;
+        const content = document.createElement('div');
+        content.style.maxWidth = '280px';
+        const h = document.createElement('h3'); h.style.margin='0 0 6px 0'; h.style.fontWeight='700'; h.textContent = placeResult.name;
+        const c = document.createElement('div'); c.style.color = style.color; c.style.fontWeight = '600'; c.style.marginBottom = '6px'; c.textContent = style.name;
+        content.appendChild(h); content.appendChild(c);
+        if (placeResult.vicinity) { const v = document.createElement('div'); v.style.fontSize='12px'; v.style.color='#6b7280'; v.textContent = placeResult.vicinity; content.appendChild(v); }
+        const divBtn = document.createElement('div'); divBtn.style.marginTop='8px';
+        const goBtn = document.createElement('a'); goBtn.href = '#'; goBtn.className='iw-btn go-btn'; goBtn.textContent='Ir até aqui'; goBtn.dataset.placeId = placeResult.place_id;
+        divBtn.appendChild(goBtn); content.appendChild(divBtn);
+
         infoWindow.setContent(content);
         infoWindow.open(map, marker);
 
         google.maps.event.addListenerOnce(infoWindow, 'domready', () => {
-          const goBtn = document.querySelector('.iw-btn.go-btn');
-          if (goBtn) {
-            goBtn.addEventListener('click', (ev) => {
+          const btn = document.querySelector('.iw-btn.go-btn');
+          if (btn) {
+            btn.addEventListener('click', (ev) => {
               ev.preventDefault();
               const poi = {
                 name: placeResult.name,
@@ -726,7 +724,8 @@
                 place_id: placeResult.place_id,
                 category: type
               };
-              setTemporaryDestination(poi);
+              // entra em modo pin (ping azul) para permitir salvar exato / ajustar
+              enterPinModeAt(poi);
               infoWindow.close();
             });
           }
@@ -736,11 +735,86 @@
       poiMarkers.push(marker);
     }
 
+    // ---------- Pin mode: ping azul e salvar local exato ----------
+    function enterPinModeAt(poi) {
+      isPinMode = true;
+      document.getElementById('pin-actions').style.display = 'flex';
+      showToast(`Pino temporário em: ${poi.name || 'Local'}`);
+
+      // criar um marcador editável no mapa (draggable)
+      if (tempPinMarker) tempPinMarker.setMap(null);
+      tempPinMarker = new google.maps.Marker({
+        position: { lat: poi.lat, lng: poi.lng },
+        map,
+        draggable: true,
+        title: poi.name || 'Pino temporário',
+        animation: google.maps.Animation.DROP,
+        icon: {
+          path: google.maps.SymbolPath.CIRCLE,
+          fillColor: '#aee6ff',
+          fillOpacity: 1,
+          scale: 8,
+          strokeColor: '#0ea5e9',
+          strokeWeight: 2
+        }
+      });
+
+      // pequena animação visual: adicionar pulso (DOM) perto do marker (não trivial no Maps; usaremos overlay)
+      const overlay = new google.maps.OverlayView();
+      overlay.onAdd = function() { this.div = document.createElement('div'); this.div.className = 'map-pulse'; this.getPanes().overlayMouseTarget.appendChild(this.div); };
+      overlay.draw = function() {
+        if (!this.div || !tempPinMarker) return;
+        const pos = this.getProjection().fromLatLngToDivPixel(tempPinMarker.getPosition());
+        if (pos) { this.div.style.left = (pos.x - 9) + 'px'; this.div.style.top = (pos.y - 9) + 'px'; }
+      };
+      overlay.onRemove = function() { if (this.div && this.div.parentNode) this.div.parentNode.removeChild(this.div); };
+      overlay.setMap(map);
+      tempPinMarker.__overlay = overlay;
+
+      // centralizar
+      map.panTo(tempPinMarker.getPosition()); map.setZoom(Math.max(map.getZoom(), 15));
+
+      // habilitar salvar/cancelar
+      document.getElementById('save-exact').onclick = () => {
+        const pos = tempPinMarker.getPosition();
+        const newPlace = {
+          name: document.getElementById('place-name').value.trim() || poi.name || 'Ponto',
+          value: parseFloat(document.getElementById('place-value').value) || 0,
+          category: document.getElementById('place-category').value || (poi.category || 'other'),
+          lat: pos.lat(), lng: pos.lng(), address: document.getElementById('search').value || poi.address || '', date: new Date().toISOString()
+        };
+        places.push(newPlace); saveData(); renderPlaces(); updateRoute();
+        exitPinMode(); showToast('Local adicionado com sucesso!');
+        // limpar inputs
+        document.getElementById('place-name').value=''; document.getElementById('place-value').value=''; document.getElementById('search').value='';
+      };
+
+      document.getElementById('cancel-pin').onclick = () => { exitPinMode(); showToast('Operação cancelada.'); };
+    }
+
+    function placeTempPin(latLng) {
+      if (!isPinMode) return;
+      if (!tempPinMarker) {
+        tempPinMarker = new google.maps.Marker({ position: latLng, map, draggable:true, icon: { path: google.maps.SymbolPath.CIRCLE, fillColor:'#aee6ff', fillOpacity:1, scale:8, strokeColor:'#0ea5e9', strokeWeight:2 } });
+      } else {
+        tempPinMarker.setPosition(latLng);
+      }
+    }
+
+    function exitPinMode() {
+      isPinMode = false;
+      document.getElementById('pin-actions').style.display = 'none';
+      if (tempPinMarker) {
+        if (tempPinMarker.__overlay) { tempPinMarker.__overlay.setMap(null); }
+        tempPinMarker.setMap(null); tempPinMarker = null;
+      }
+    }
+
     // ---------- Rota Temporária (Ir até aqui) ----------
     function setTemporaryDestination(poi) {
       tempDestination = poi;
       document.getElementById('abort-temp').style.display = 'inline-block';
-      showToast(Rota temporária definida para ${poi.name});
+      showToast(`Rota temporária definida para ${poi.name}`);
       const start = currentPositionMarker ? currentPositionMarker.getPosition() : map.getCenter();
       if (!start) { showToast('Posição inicial desconhecida para ir até aqui.', true); return; }
       const startLatLng = { lat: start.lat(), lng: start.lng() };
@@ -749,49 +823,24 @@
 
     function computeTempRoute(startLatLng, poi) {
       if (!poi) return;
-      const request = {
-        origin: startLatLng,
-        destination: { lat: poi.lat, lng: poi.lng },
-        travelMode: google.maps.TravelMode.DRIVING,
-        provideRouteAlternatives: false
-      };
+      const request = { origin: startLatLng, destination: { lat: poi.lat, lng: poi.lng }, travelMode: google.maps.TravelMode.DRIVING, provideRouteAlternatives: false };
       directionsService.route(request, (result, status) => {
         if (status === 'OK') {
           directionsRendererTemp.setMap(map);
           directionsRendererTemp.setDirections(result);
-          try {
-            const bounds = new google.maps.LatLngBounds();
-            bounds.extend(result.routes[0].legs[0].start_location);
-            bounds.extend(result.routes[0].legs[0].end_location);
-            map.fitBounds(bounds);
-          } catch(e){}
+          try { const bounds = new google.maps.LatLngBounds(); bounds.extend(result.routes[0].legs[0].start_location); bounds.extend(result.routes[0].legs[0].end_location); map.fitBounds(bounds); } catch(e){}
           renderTempDetails(result, poi);
-        } else {
-          showToast('Erro ao calcular rota temporária: ' + status, true);
-        }
+        } else { showToast('Erro ao calcular rota temporária: ' + status, true); }
       });
     }
 
     function renderTempDetails(routeResult, poi) {
       const container = document.getElementById('route-details');
       let html = '<h3 class="font-semibold mb-2">Detalhes do Percurso:</h3>';
-      if (lastRouteResult && lastRouteResult.routes) {
-        html += '<div class="text-sm text-gray-600 mb-2">Rota principal (salva)</div>';
-      }
+      if (lastRouteResult && lastRouteResult.routes) { html += '<div class="text-sm text-gray-600 mb-2">Rota principal (salva)</div>'; }
       try {
         const leg = routeResult.routes[0].legs[0];
-        html += 
-          <div class="bg-green-50 p-3 rounded-lg mb-2">
-            <div class="flex justify-between items-center">
-              <div>
-                <p class="font-medium">Rota temporária → ${poi.name}</p>
-                <p class="text-sm text-gray-600">${leg.distance.text} • ${leg.duration.text}</p>
-              </div>
-              <p class="text-travel-700 font-medium">${leg.duration.text}</p>
-            </div>
-            <div class="mt-2 text-xs text-gray-600">Se desejar, clique em <strong>Desistir</strong> para voltar à rota original.</div>
-          </div>
-        ;
+        html += `\n          <div class="bg-green-50 p-3 rounded-lg mb-2">\n            <div class="flex justify-between items-center">\n              <div>\n                <p class="font-medium">Rota temporária → ${poi.name}</p>\n                <p class="text-sm text-gray-600">${leg.distance.text} • ${leg.duration.text}</p>\n              </div>\n              <p class="text-travel-700 font-medium">${leg.duration.text}</p>\n            </div>\n            <div class="mt-2 text-xs text-gray-600">Se desejar, clique em <strong>Desistir</strong> para voltar à rota original.</div>\n          </div>`;
       } catch (e) { console.warn(e); }
       container.innerHTML = html;
     }
@@ -821,13 +870,7 @@
         if (!name) { showToast('Por favor, digite um nome para o local', true); return; }
         if (!map) { showToast('Mapa ainda não carregado. Aguarde.', true); return; }
         const center = map.getCenter();
-        const newPlace = {
-          name, value, category,
-          lat: center ? center.lat() : -15.795,
-          lng: center ? center.lng() : -47.891,
-          address: document.getElementById('search').value || '',
-          date: new Date().toISOString()
-        };
+        const newPlace = { name, value, category, lat: center ? center.lat() : -15.795, lng: center ? center.lng() : -47.891, address: document.getElementById('search').value || '', date: new Date().toISOString() };
         places.push(newPlace); saveData(); renderPlaces(); updateRoute(); showToast('Local adicionado com sucesso!');
         document.getElementById('place-name').value = ''; document.getElementById('place-value').value = ''; document.getElementById('search').value = '';
       });
@@ -837,7 +880,7 @@
         if (!query) { showToast('Digite algo para pesquisar.', true); return; }
         if (!map || !google || !google.maps || !google.maps.places) { showToast('Serviço de lugares não disponível no momento.', true); return; }
         const service = new google.maps.places.PlacesService(map);
-        service.findPlaceFromQuery({ query, fields: ['name','geometry','formatted_address','types'] }, (results, status) => {
+        service.findPlaceFromQuery({ query, fields: ['name','geometry','formatted_address','types','place_id','vicinity'] }, (results, status) => {
           if (status === google.maps.places.PlacesServiceStatus.OK && results && results[0]) {
             const p = results[0];
             if (p.geometry && p.geometry.location) { map.setCenter(p.geometry.location); map.setZoom(15); }
@@ -851,7 +894,11 @@
             else if (p.types && (p.types.includes('museum') || p.types.includes('art_gallery'))) category = 'museum';
             else if (p.types && (p.types.includes('shopping_mall') || p.types.includes('store'))) category = 'shopping';
             document.getElementById('place-category').value = category;
-            showToast('Local encontrado! Preencha os detalhes e adicione.');
+
+            // entrar em pin mode automático para o ponto encontrado (ping azul e opcao de salvar exato)
+            const poi = { name: p.name, lat: p.geometry.location.lat(), lng: p.geometry.location.lng(), address: p.formatted_address || p.name, category };
+            enterPinModeAt(poi);
+            showToast('Local encontrado! Ajuste o pino e salve a posição exata.');
           } else {
             showToast('Local não encontrado. Tente outro termo de busca.', true);
           }
@@ -885,10 +932,7 @@
         if (confirm('Remover este gasto?')) { generalExpenses.splice(index,1); saveData(); renderExpenses(); showToast('Gasto removido!'); }
       });
 
-      document.getElementById('optimize-route').addEventListener('click', () => {
-        if (places.length < 2) { showToast('Adicione pelo menos 2 locais para otimizar a rota', true); return; }
-        updateRoute(); showToast('Rota otimizada com sucesso!');
-      });
+      document.getElementById('optimize-route').addEventListener('click', () => { if (places.length < 2) { showToast('Adicione pelo menos 2 locais para otimizar a rota', true); return; } updateRoute(); showToast('Rota otimizada com sucesso!'); });
 
       document.getElementById('clear-route').addEventListener('click', () => {
         if (places.length > 0 && confirm('Tem certeza que deseja limpar toda a rota?')) {
@@ -900,15 +944,13 @@
           poiMarkers.forEach(m=>m.setMap(null)); poiMarkers=[];
           directionsRendererTemp.setMap(null);
           tempDestination = null;
+          exitPinMode();
           document.getElementById('abort-temp').style.display = 'none';
           showToast('Roteiro limpo com sucesso!');
         }
       });
 
-      document.getElementById('start-trip').addEventListener('click', () => {
-        if (watchId) { stopGPSTracking(); showToast('Rastreamento parado'); }
-        else { startGPSTracking(); }
-      });
+      document.getElementById('start-trip').addEventListener('click', () => { if (watchId) { stopGPSTracking(); showToast('Rastreamento parado'); } else { startGPSTracking(); } });
 
       document.getElementById('fuel-efficiency').addEventListener('change', updateStats);
       document.getElementById('fuel-price').addEventListener('change', updateStats);
@@ -917,18 +959,16 @@
 
       document.getElementById('abort-temp').addEventListener('click', () => { if (confirm('Deseja abandonar o destino temporário e voltar à rota original?')) abortTemporaryRoute(); });
 
-      // quando o usuário clicar em um POI no mapa, o addPOIMarker já lida com o evento "Ir até aqui"
     }
 
     // ---------- carregar Google Maps script dinamicamente ----------
     function loadGoogleMaps() {
-      if (!GM_API_KEY || GM_API_KEY === 'AIzaSyDZZPLwxGSuBjzinFJSVyZVM-_y_2xDjCE') {
-        console.warn('Substitua YOUR_API_KEY_HERE pela sua chave do Google Maps.');
+      if (!GM_API_KEY || GM_API_KEY === 'YOUR_API_KEY_HERE') {
+        console.warn('Substitua YOUR_API_KEY_HERE pela sua chave do Google Maps. O mapa pode falhar sem a chave.');
       }
       const script = document.createElement('script');
-      script.src = https://maps.googleapis.com/maps/api/js?key=$AIzaSyDZZPLwxGSuBjzinFJSVyZVM-_y_2xDjCE&libraries=places,directions,geometry&callback=initMap;
-      script.async = true;
-      script.defer = true;
+      script.src = `https://maps.googleapis.com/maps/api/js?key=$AIzaSyAPkjcgFgdopkeZN0GnvhOc787jrajJnWc&libraries=places,directions,geometry&callback=initMap`;
+      script.async = true; script.defer = true;
       script.onerror = () => showToast('Falha ao carregar Google Maps. Verifique sua chave/API.', true);
       document.head.appendChild(script);
     }
