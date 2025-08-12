@@ -223,7 +223,7 @@
 
   <script>
     // ========= CONFIG =========
-    const GM_API_KEY = 'AIzaSyDwbThPtdCFKguYQggrrdJsiyJbPyDeKZc';
+    const GM_API_KEY = 'YOUR_API_KEY_HERE';
 
     // ========= CATEGORIAS =========
     const categoryStyles = {
@@ -843,7 +843,7 @@
     function loadGoogleMaps(){
       const key=getApiKey();
       const s=document.createElement('script');
-      s.src=`https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(key)}&libraries=places,directions,geometry&callback=initMap`;
+      s.src=`https://maps.googleapis.com/maps/api/js?key=AIzaSyDwbThPtdCFKguYQggrrdJsiyJbPyDeKZc&libraries=places,directions,geometry&callback=initMap`;
       s.async=true; s.defer=true;
       s.onerror=()=>showToast('Falha ao carregar Google Maps. Verifique a chave/API.',true);
       document.head.appendChild(s);
