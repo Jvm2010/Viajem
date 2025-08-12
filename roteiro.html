@@ -11,9 +11,16 @@
         extend: {
           colors: {
             travel: {
-              50: '#f0f9ff', 100: '#e0f2fe', 200: '#bae6fd', 300: '#7dd3fc',
-              400: '#38bdf8', 500: '#0ea5e9', 600: '#0284c7', 700: '#0369a1',
-              800: '#075985', 900: '#0c4a6e',
+              50: '#f0f9ff',
+              100: '#e0f2fe',
+              200: '#bae6fd',
+              300: '#7dd3fc',
+              400: '#38bdf8',
+              500: '#0ea5e9',
+              600: '#0284c7',
+              700: '#0369a1',
+              800: '#075985',
+              900: '#0c4a6e',
             }
           }
         }
@@ -35,6 +42,8 @@
     .iw-btn { display:inline-block; margin-top:6px; background:#0ea5e9; color:#fff; padding:6px 10px; border-radius:6px; text-decoration:none; font-weight:600; }
     .iw-btn.desist { background:#ef4444; }
     .iw-btn.save { background:#10b981; }
+    .iw-btn.light { background:#64748b; }
+    .dimmed { opacity:.45; filter: grayscale(.2); }
   </style>
 </head>
 <body class="bg-travel-50">
@@ -65,18 +74,18 @@
     </div>
 
     <!-- Mapa Google -->
-    <div class="card bg-white p-4 mb-6 shadow-md rounded-xl">
+    <div class="card bg-white p-4 mb-3 shadow-md rounded-xl">
       <h2 class="text-lg font-semibold text-travel-800 mb-3">Mapa da Viagem</h2>
       <div id="map"></div>
       <div class="flex justify-between mt-3 items-center">
-        <div>
-          <button id="start-trip" type="button" class="bg-travel-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-travel-700 transition mr-2">
+        <div class="flex flex-wrap gap-2">
+          <button id="start-trip" type="button" class="bg-travel-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-travel-700 transition">
             Iniciar Viagem
           </button>
           <button id="optimize-route" type="button" class="bg-travel-100 text-travel-700 px-4 py-2 rounded-lg font-medium hover:bg-travel-200 transition">
             Otimizar Rota
           </button>
-          <button id="abort-temp" type="button" class="ml-2 bg-red-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-red-700 transition">
+          <button id="abort-temp" type="button" class="bg-red-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-red-700 transition">
             Desistir (Voltar à Rota)
           </button>
         </div>
@@ -84,6 +93,21 @@
           <button id="clear-route" type="button" class="text-red-500 px-4 py-2 rounded-lg border border-red-200 hover:bg-red-50 transition">
             Limpar Tudo
           </button>
+        </div>
+      </div>
+
+      <!-- Painel Próxima Parada (anexado ao "GPS do carro") -->
+      <div id="next-stop-panel" class="hidden mt-3 bg-travel-50 border border-travel-100 rounded-lg p-3">
+        <div class="flex items-start justify-between gap-3">
+          <div>
+            <p class="text-sm text-gray-600">Próxima parada</p>
+            <p id="next-stop-title" class="text-lg font-semibold text-travel-800">—</p>
+            <p id="next-stop-meta" class="text-sm text-gray-700">—</p>
+          </div>
+          <div class="flex gap-2">
+            <button id="skip-next-stop" class="bg-gray-100 text-gray-700 px-3 py-2 rounded-lg hover:bg-gray-200">Pular</button>
+            <button id="arrived-btn" class="bg-green-600 text-white px-3 py-2 rounded-lg hover:bg-green-700">Cheguei</button>
+          </div>
         </div>
       </div>
     </div>
@@ -201,9 +225,10 @@
 
   <script>
     // ---------------- CONFIG ----------------
-    // 👉 Coloque sua chave ou use localStorage['gm_api_key'] ou parâmetro ?gm_key=
-    const GM_API_KEY = 'YOUR_API_KEY_HERE';
+    // 👉 Coloque sua chave: defina aqui OU salve em localStorage['gm_api_key'] OU passe ?gm_key= NA URL.
+    const GM_API_KEY = 'AIzaSyDwbThPtdCFKguYQggrrdJsiyJbPyDeKZc';
 
+    // Cores/ícones por categoria (hotel em ciano para diferenciar)
     const categoryStyles = {
       attraction: { color: '#ef4444', icon: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png',    name: 'Atração' },
       park:       { color: '#10b981', icon: 'https://maps.google.com/mapfiles/ms/icons/green-dot.png',  name: 'Parque' },
@@ -245,6 +270,11 @@
       const x = Math.cos(lat1)*Math.sin(lat2) - Math.sin(lat1)*Math.cos(lat2)*Math.cos(dLon);
       return (toDeg(Math.atan2(y,x)) + 360) % 360;
     }
+    function distanceMeters(a, b) {
+      const p1 = new google.maps.LatLng(a.lat, a.lng);
+      const p2 = new google.maps.LatLng(b.lat, b.lng);
+      return google.maps.geometry.spherical.computeDistanceBetween(p1, p2);
+    }
 
     // ===== estado global =====
     let map, directionsService, directionsRendererMain, directionsRendererTemp, placesService, infoWindow;
@@ -253,7 +283,7 @@
     let lastRouteResult = null;          // rota principal (atual)
     let lastRouteResultSaved = null;     // snapshot para reverter após rota temporária
     let watchId = null;
-    let isTracking = false;              // controla modo GPS x mapa
+    let isTracking = false;              // <— separa modo GPS x modo Mapa (corrige "briga")
     let currentPositionMarker = null;
     let pathCoordinates = [];            // breadcrumb do GPS
     let pathPolyline = null;
@@ -263,8 +293,15 @@
     const POI_SEARCH_DISTANCE_THRESHOLD = 500; // metros
     let searchTempMarker = null;         // marcador azul claro da busca (draggable)
     let mapClickMarker = null;           // marcador criado ao clicar no mapa
-    let lastKnownPosition = null;        // última posição do GPS (para cálculo de rota)
 
+    // Próxima parada (anexada ao "GPS do carro")
+    let visitedSet = new Set();          // índices visitados (sessão)
+    const VISIT_RADIUS_M = 120;          // raio para marcar como "cheguei"
+    let nextStopIndex = null;
+    let lastNextStopEtaMs = 0;
+    const NEXTSTOP_RECALC_MS = 25000;
+
+    // ---------- ícone do “carro” rotacionável ----------
     function createCarIcon(headingDeg = 0) {
       const size = 36;
       const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
@@ -375,14 +412,24 @@
       if (isTracking) return;
       isTracking = true;
 
+      // Quando iniciar, travamos a ordem atual da rota (para não “reotimizar” a cada tick)
+      if (lastRouteResult && lastRouteResult.routes && lastRouteResult.routes[0] && lastRouteResult.routes[0].waypoint_order) {
+        applyWaypointOrderToPlaces(lastRouteResult.routes[0].waypoint_order);
+      }
+
       showToast('Iniciando rastreamento GPS...');
       if (!pathCoordinates) pathCoordinates = [];
+      if (!pathPolyline) {
+        pathPolyline = new google.maps.Polyline({
+          path: pathCoordinates, geodesic: true, strokeColor: '#0b74de', strokeOpacity: 1, strokeWeight: 4, map
+        });
+      }
+      document.getElementById('next-stop-panel').classList.remove('hidden');
 
       watchId = navigator.geolocation.watchPosition(pos => {
         if (!isTracking) return;
         const lat = pos.coords.latitude, lng = pos.coords.longitude;
         const p = { lat, lng };
-        lastKnownPosition = p;
 
         // atualizar marcador de posição atual
         if (!currentPositionMarker) {
@@ -402,11 +449,9 @@
         }
 
         // atualizar breadcrumb (evita pontos repetidos)
-        if (pathCoordinates.length === 0 ||
-            Math.abs(pathCoordinates[pathCoordinates.length-1].lat - p.lat) > 0.00001 ||
-            Math.abs(pathCoordinates[pathCoordinates.length-1].lng - p.lng) > 0.00001) {
+        if (pathCoordinates.length === 0 || (Math.abs(pathCoordinates[pathCoordinates.length-1].lat - p.lat) > 0.00001 || Math.abs(pathCoordinates[pathCoordinates.length-1].lng - p.lng) > 0.00001)) {
           pathCoordinates.push(p);
-          if (pathPolyline) pathPolyline.setPath(pathCoordinates);
+          pathPolyline.setPath(pathCoordinates);
         }
 
         // “seguir” usuário apenas no modo tracking
@@ -415,11 +460,15 @@
         // POIs dinâmicos conforme anda
         schedulePOISearch(new google.maps.LatLng(p.lat, p.lng));
 
+        // Marcar paradas visitadas e atualizar próxima parada
+        markArrivals(p);
+        updateNextStop(p);
+
         // Atualizar navegação:
         if (tempDestination) {
           computeTempRoute(p, tempDestination);           // navegação temporária
-        } else if (places && places.length >= 2) {
-          updateMainRouteFromCurrentPosition(p);          // navegação pela rota principal (com origem = posição atual)
+        } else if (places && places.length >= 1) {
+          updateMainRouteFromCurrentPosition(p);          // navegação pela rota principal (ordem fixa)
         }
 
       }, err => {
@@ -448,6 +497,15 @@
       startBtn.textContent = 'Iniciar Viagem';
       startBtn.classList.add('bg-travel-600');
       startBtn.classList.remove('bg-red-600', 'tracking');
+
+      document.getElementById('next-stop-panel').classList.add('hidden');
+      nextStopIndex = null;
+      tempDestination = null;
+      directionsRendererTemp.setMap(null);
+      document.getElementById('abort-temp').style.display = 'none';
+
+      // Recalcula rota padrão a partir dos locais (modo mapa)
+      updateRoute();
     }
 
     function followUser(pos) {
@@ -463,18 +521,20 @@
       } catch(e) { console.warn('followUser error', e); }
     }
 
-    // recalcula rota principal usando posição atual como origem (modo driving)
+    // recalcula rota principal usando posição atual como origem (DRIVING) SEM reotimizar ordem (evita “briga”)
     function updateMainRouteFromCurrentPosition(currentPos) {
-      if (!isTracking) return;                  // só no modo GPS
-      if (!places || places.length < 2) return;
+      if (!isTracking) return;
+      if (!places || places.length === 0) return;
 
-      const waypoints = places.slice(1, -1).map(p => ({ location: { lat: p.lat, lng: p.lng }, stopover: true }));
+      const waypoints = places.slice(0, -1).map(p => ({ location: { lat: p.lat, lng: p.lng }, stopover: true }));
+      const destination = { lat: places[places.length -1].lat, lng: places[places.length -1].lng };
+
       const request = {
         origin: { lat: currentPos.lat, lng: currentPos.lng },
-        destination: { lat: places[places.length -1].lat, lng: places[places.length -1].lng },
+        destination,
         waypoints,
         travelMode: google.maps.TravelMode.DRIVING,
-        optimizeWaypoints: true
+        optimizeWaypoints: false
       };
       directionsService.route(request, (result, status) => {
         if (status === 'OK') {
@@ -483,10 +543,96 @@
           lastRouteResult = result;
           renderRouteDetails(result);
           updateStats();
-        } else {
-          console.warn('updateMainRouteFromCurrentPosition status', status);
         }
       });
+    }
+
+    // ---------- Próxima Parada ----------
+    function markArrivals(currentPos) {
+      if (!places || places.length === 0) return;
+      places.forEach((pl, idx) => {
+        if (visitedSet.has(idx)) return;
+        const d = distanceMeters(currentPos, pl);
+        if (d <= VISIT_RADIUS_M) {
+          visitedSet.add(idx);
+          if (markers[idx]) markers[idx].setOpacity(0.5);
+        }
+      });
+    }
+
+    function getNextStopIndex(currentPos) {
+      if (!places || places.length === 0) return null;
+      // pega o primeiro local não visitado à frente (ordem atual)
+      for (let i = 0; i < places.length; i++) {
+        if (!visitedSet.has(i)) {
+          const d = distanceMeters(currentPos, places[i]);
+          if (d > VISIT_RADIUS_M) return i;
+        }
+      }
+      return null;
+    }
+
+    function updateNextStop(currentPos) {
+      const idx = getNextStopIndex(currentPos);
+      nextStopIndex = idx;
+
+      const panel = document.getElementById('next-stop-panel');
+      const title = document.getElementById('next-stop-title');
+      const meta = document.getElementById('next-stop-meta');
+
+      if (tempDestination) {
+        panel.classList.remove('hidden');
+        title.textContent = `Destino temporário: ${tempDestination.name}`;
+        meta.textContent = 'Calculando...';
+        // evita bater Directions em excesso — já detalhamos no box das rotas temporárias
+        return;
+      }
+
+      if (idx === null) {
+        panel.classList.remove('hidden');
+        title.textContent = 'Todas as paradas concluídas 🎉';
+        meta.textContent = '';
+        return;
+      }
+
+      const place = places[idx];
+      panel.classList.remove('hidden');
+      title.textContent = place.name;
+
+      // Recalcula ETA pontual para a próxima parada (com throttle)
+      const now = Date.now();
+      if (now - lastNextStopEtaMs < NEXTSTOP_RECALC_MS) {
+        const dist = (distanceMeters(currentPos, place) / 1000).toFixed(1);
+        meta.textContent = `${dist} km • ETA atualizando...`;
+        return;
+      }
+      lastNextStopEtaMs = now;
+
+      directionsService.route({
+        origin: currentPos, destination: { lat: place.lat, lng: place.lng },
+        travelMode: google.maps.TravelMode.DRIVING
+      }, (res, status) => {
+        if (status === 'OK' && res.routes[0] && res.routes[0].legs[0]) {
+          const leg = res.routes[0].legs[0];
+          meta.textContent = `${leg.distance.text} • ${leg.duration.text}`;
+        } else {
+          const dist = (distanceMeters(currentPos, place) / 1000).toFixed(1);
+          meta.textContent = `${dist} km`;
+        }
+      });
+    }
+
+    function setAsNextStop(index) {
+      if (index < 0 || index >= places.length) return;
+      // Move o local escolhido para a primeira posição NÃO visitada
+      const arr = [...places];
+      const [item] = arr.splice(index, 1);
+      let insertAt = 0;
+      while (insertAt < arr.length && visitedSet.has(insertAt)) insertAt++;
+      arr.splice(insertAt, 0, item);
+      places = arr;
+      saveData(); renderPlaces(); updateRoute();
+      showToast(`"${item.name}" definido como próxima parada.`);
     }
 
     // ---------- Persistência ----------
@@ -536,6 +682,8 @@
                 `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M10 3l5 6H5l5-6z"/></svg></button>`;
         html += `<button data-index="${index}" title="Descer" class="move-down text-travel-600 hover:text-travel-800 p-1">` +
                 `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M10 17l-5-6h10l-5 6z"/></svg></button>`;
+        html += `<button data-index="${index}" title="Como próxima parada" class="as-next text-travel-700 hover:text-travel-900 p-1">` +
+                `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M10 3l6 6-6 6-6-6 6-6z"/></svg></button>`;
         html += `<button data-index="${index}" title="Remover" class="delete-place text-red-500 hover:text-red-700 p-1">` +
                 `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"/></svg></button>`;
         html += '</div></div>';
@@ -588,8 +736,8 @@
         return;
       }
 
-      // Locais salvos: marcadores por categoria
-      places.forEach((place) => {
+      // Locais salvos: “pingos” por cor de categoria (sem numeração)
+      places.forEach((place, i) => {
         const cat = categoryStyles[place.category] || categoryStyles.other;
         const icon = { url: cat.icon, scaledSize: new google.maps.Size(36,36) };
         const marker = new google.maps.Marker({
@@ -599,19 +747,44 @@
           icon
         });
         marker.addListener('click', () => {
-          const content = `<div style="max-width:220px">
+          const content = `<div style="max-width:260px">
               <h3 style="margin:0 0 4px 0;font-weight:700">${escapeHtml(place.name)}</h3>
               <div style="color:${cat.color};font-weight:600;margin-bottom:6px">${cat.name}</div>
               ${place.value ? `<div style="margin-bottom:6px">${formatCurrency(place.value)}</div>` : ''}
               ${place.address ? `<div style="font-size:12px;color:#6b7280">${escapeHtml(place.address)}</div>` : ''}
+              <div style="margin-top:8px">
+                <a href="#" data-i="${i}" class="iw-btn light as-next">Como próxima parada</a>
+                <a href="#" data-i="${i}" class="iw-btn go-btn">Ir até aqui</a>
+              </div>
             </div>`;
           infoWindow.setContent(content);
           infoWindow.open(map, marker);
+
+          google.maps.event.addListenerOnce(infoWindow, 'domready', () => {
+            const goBtn = document.querySelector('.iw-btn.go-btn');
+            if (goBtn) {
+              goBtn.addEventListener('click', (ev) => {
+                ev.preventDefault();
+                const p = places[i];
+                const poi = { name: p.name, lat: p.lat, lng: p.lng, address: p.address||'', place_id: null, category: p.category };
+                setTemporaryDestination(poi);
+                infoWindow.close();
+              });
+            }
+            const asNextBtn = document.querySelector('.iw-btn.as-next');
+            if (asNextBtn) {
+              asNextBtn.addEventListener('click', (ev) => {
+                ev.preventDefault();
+                setAsNextStop(parseInt(asNextBtn.getAttribute('data-i')));
+                infoWindow.close();
+              });
+            }
+          });
         });
         markers.push(marker);
+        if (visitedSet.has(i)) marker.setOpacity(0.5);
       });
 
-      // 1 ponto só → sem rota
       if (places.length === 1) {
         map.setCenter(markers[0].getPosition()); map.setZoom(14);
         directionsRendererMain.setMap(null); directionsRendererMain.setDirections({ routes: [] });
@@ -621,45 +794,42 @@
         return;
       }
 
-      // 2+ pontos → rota
-      const waypoints = places.slice(1, -1).map(p => ({ location: { lat: p.lat, lng: p.lng }, stopover: true }));
-      // ORIGEM: se estiver rastreando e temos posição, usa o GPS. Senão, usa o primeiro ponto salvo.
-      const origin = (isTracking && lastKnownPosition)
-        ? { lat: lastKnownPosition.lat, lng: lastKnownPosition.lng }
-        : { lat: places[0].lat, lng: places[0].lng };
+      // Se estiver em modo GPS, calcula a partir da posição atual e NÃO otimiza
+      if (isTracking && currentPositionMarker) {
+        const pos = currentPositionMarker.getPosition();
+        updateMainRouteFromCurrentPosition({ lat: pos.lat(), lng: pos.lng() });
+        return;
+      }
 
-      const request = {
-        origin,
-        destination: { lat: places[places.length -1].lat, lng: places[places.length -1].lng },
-        waypoints, travelMode: google.maps.TravelMode.DRIVING, optimizeWaypoints: true, provideRouteAlternatives: false
-      };
-      directionsService.route(request, (result, status) => {
-        if (status === 'OK') {
-          directionsRendererMain.setMap(map);
-          directionsRendererMain.setDirections(result);
-          lastRouteResult = result;
-
-          // snapshot para restaurar após rota temporária (somente quando não tem rota temporária)
-          if (!tempDestination) {
+      // Modo mapa: otimiza caminho (apenas quando não está rastreando)
+      if (places.length >= 2) {
+        const waypoints = places.slice(1, -1).map(p => ({ location: { lat: p.lat, lng: p.lng }, stopover: true }));
+        const request = {
+          origin: { lat: places[0].lat, lng: places[0].lng },
+          destination: { lat: places[places.length -1].lat, lng: places[places.length -1].lng },
+          waypoints, travelMode: google.maps.TravelMode.DRIVING, optimizeWaypoints: true, provideRouteAlternatives: false
+        };
+        directionsService.route(request, (result, status) => {
+          if (status === 'OK') {
+            directionsRendererMain.setMap(map);
+            directionsRendererMain.setDirections(result);
+            lastRouteResult = result;
+            // snapshot para restaurar após rota temporária
             lastRouteResultSaved = JSON.parse(JSON.stringify(result));
-          }
-
-          try {
-            if (!isTracking) {
+            try {
               const bounds = new google.maps.LatLngBounds();
               result.routes[0].legs.forEach(leg => { bounds.extend(leg.start_location); bounds.extend(leg.end_location); });
               map.fitBounds(bounds);
-            }
-          } catch (err) { console.warn('bounds error', err); }
-
-          renderRouteDetails(result);
-          updateStats();
-        } else {
-          showToast('Erro ao calcular rota: ' + status, true);
-          lastRouteResult = null;
-          updateStats();
-        }
-      });
+            } catch (err) { console.warn('bounds error', err); }
+            renderRouteDetails(result);
+            updateStats();
+          } else {
+            showToast('Erro ao calcular rota: ' + status, true);
+            lastRouteResult = null;
+            updateStats();
+          }
+        });
+      }
     }
 
     function renderRouteDetails(routeResult) {
@@ -682,6 +852,18 @@
           </div>`;
         container.appendChild(div);
       });
+    }
+
+    function applyWaypointOrderToPlaces(waypointOrder) {
+      // waypointOrder refere-se aos itens intermediários (exclui origem e destino)
+      if (!Array.isArray(waypointOrder) || places.length < 3) return;
+      const first = places[0];
+      const last = places[places.length - 1];
+      const mid = places.slice(1, -1);
+      const reord = waypointOrder.map(i => mid[i]);
+      places = [first, ...reord, last];
+      saveData();
+      renderPlaces();
     }
 
     // ---------- Estatísticas ----------
@@ -935,6 +1117,7 @@
         const category = document.getElementById('place-category').value;
         if (!name) { showToast('Por favor, digite um nome para o local', true); return; }
         if (!map) { showToast('Mapa ainda não carregado. Aguarde.', true); return; }
+        // se o usuário usou a busca e arrastou o marker, usar esse ponto exato
         let lat, lng;
         if (searchTempMarker) {
           const p = searchTempMarker.getPosition();
@@ -1009,6 +1192,8 @@
           [places[index-1], places[index]] = [places[index], places[index-1]]; saveData(); renderPlaces(); updateRoute();
         } else if (btn.classList.contains('move-down') && index < places.length-1) {
           [places[index+1], places[index]] = [places[index], places[index+1]]; saveData(); renderPlaces(); updateRoute();
+        } else if (btn.classList.contains('as-next')) {
+          setAsNextStop(index);
         }
       });
 
@@ -1020,47 +1205,70 @@
 
       document.getElementById('optimize-route').addEventListener('click', () => {
         if (places.length < 2) { showToast('Adicione pelo menos 2 locais para otimizar a rota', true); return; }
-        updateRoute(); showToast('Rota otimizada com sucesso!');
+        if (isTracking && currentPositionMarker) {
+          // otimiza ordem (exceto destino final, se existir), a partir da posição atual
+          const pos = currentPositionMarker.getPosition();
+          const req = {
+            origin: { lat: pos.lat(), lng: pos.lng() },
+            destination: { lat: places[places.length -1].lat, lng: places[places.length -1].lng },
+            waypoints: places.slice(0, -1).map(p => ({ location: { lat: p.lat, lng: p.lng }, stopover: true })),
+            travelMode: google.maps.TravelMode.DRIVING,
+            optimizeWaypoints: true
+          };
+          directionsService.route(req, (res, status) => {
+            if (status === 'OK' && res.routes[0]) {
+              if (res.routes[0].waypoint_order) applyWaypointOrderToPlaces(res.routes[0].waypoint_order);
+              updateMainRouteFromCurrentPosition({ lat: pos.lat(), lng: pos.lng() });
+              showToast('Rota otimizada para a posição atual.');
+            }
+          });
+        } else {
+          updateRoute(); showToast('Rota otimizada com sucesso!');
+        }
       });
 
       document.getElementById('clear-route').addEventListener('click', () => {
         if (places.length > 0 && confirm('Tem certeza que deseja limpar toda a rota?')) {
-          places = []; generalExpenses = []; saveData(); renderPlaces(); renderExpenses();
-          // não destruir a polyline; apenas limpar
+          places = []; generalExpenses = []; saveData(); renderPlaces(); renderExpenses(); updateRoute();
+          stopGPSTracking();
+          if (currentPositionMarker) { currentPositionMarker.setMap(null); currentPositionMarker=null; }
+          if (pathPolyline) { pathPolyline.setMap(null); pathPolyline=null; }
           pathCoordinates = [];
-          if (pathPolyline) pathPolyline.setPath([]);
-          directionsRendererMain.setMap(null);
+          visitedSet = new Set();
+          poiMarkers.forEach(m=>m.setMap(null)); poiMarkers=[];
           directionsRendererTemp.setMap(null);
-          lastRouteResult = null; lastRouteResultSaved = null;
           tempDestination = null;
           document.getElementById('abort-temp').style.display = 'none';
-          poiMarkers.forEach(m=>m.setMap(null)); poiMarkers=[];
           clearSearchTempMarker();
-          if (mapClickMarker) { mapClickMarker.setMap(null); mapClickMarker = null; }
-
-          stopGPSTracking();
           showToast('Roteiro limpo com sucesso!');
-          document.getElementById('route-details').innerHTML = '';
-          updateStats();
         }
       });
 
       document.getElementById('start-trip').addEventListener('click', () => {
-        // Alterna pelo estado de fato (isTracking), evitando inconsistência
-        if (isTracking) {
-          stopGPSTracking(); showToast('Rastreamento parado');
-        } else {
+        if (isTracking) { stopGPSTracking(); showToast('Rastreamento parado'); }
+        else { 
           if (places.length === 0) {
             showToast('Adicione pelo menos um local antes de iniciar a viagem', true);
             return;
           }
-          startGPSTracking();
-          // ao entrar no modo GPS, se já existe uma rota principal, recalcule a partir da posição assim que ela chegar (via watchPosition)
-          // se já tivermos lastKnownPosition (permite caso de permissão concedida instantânea)
-          if (lastKnownPosition && places.length >= 2 && !tempDestination) {
-            updateMainRouteFromCurrentPosition(lastKnownPosition);
-          }
+          visitedSet = new Set(); // zera visitas ao iniciar
+          startGPSTracking(); 
         }
+      });
+
+      document.getElementById('arrived-btn').addEventListener('click', () => {
+        if (nextStopIndex == null) return;
+        visitedSet.add(nextStopIndex);
+        if (markers[nextStopIndex]) markers[nextStopIndex].setOpacity(0.5);
+        showToast(`Marcado "${places[nextStopIndex].name}" como concluído.`);
+      });
+
+      document.getElementById('skip-next-stop').addEventListener('click', () => {
+        if (nextStopIndex == null) return;
+        // apenas pula sem marcar visitado
+        const idx = nextStopIndex;
+        setAsNextStop(idx); // move para próximo local
+        showToast('Parada pulada.');
       });
 
       document.getElementById('fuel-efficiency').addEventListener('change', updateStats);
@@ -1073,7 +1281,6 @@
 
     // ---------- carregar Google Maps script dinamicamente ----------
     function getApiKey() {
-      // prioridade: const GM_API_KEY (se diferente de placeholder) -> localStorage['gm_api_key'] -> URL param gm_key
       const urlParams = new URLSearchParams(window.location.search);
       if (GM_API_KEY && GM_API_KEY !== 'YOUR_API_KEY_HERE') return GM_API_KEY;
       const fromLocal = localStorage.getItem('gm_api_key');
@@ -1086,11 +1293,14 @@
     function loadGoogleMaps() {
       const key = getApiKey();
       if (!key) {
-        console.warn('Substitua YOUR_API_KEY_HERE pela sua chave do Google Maps, ou salve em localStorage["gm_api_key"], ou passe ?gm_key=...');
+        showToast('Defina sua API key do Google Maps (GM_API_KEY, localStorage["gm_api_key"] ou ?gm_key=).', true);
       }
+      // callback precisa estar no escopo global
+      window.initMap = initMap;
+
       const script = document.createElement('script');
-      const apiKeyToUse = key ? key : 'INVALID_KEY';
-      script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyDwbThPtdCFKguYQggrrdJsiyJbPyDeKZc&libraries=places,directions,geometry&callback=initMap`;
+      const k = key ? `key=${encodeURIComponent(key)}&` : '';
+      script.src = `https://maps.googleapis.com/maps/api/js?${k}libraries=places,geometry&callback=initMap`;
       script.async = true;
       script.defer = true;
       script.onerror = () => showToast('Falha ao carregar Google Maps. Verifique sua chave/API.', true);
