@@ -11,16 +11,9 @@
         extend: {
           colors: {
             travel: {
-              50: '#f0f9ff',
-              100: '#e0f2fe',
-              200: '#bae6fd',
-              300: '#7dd3fc',
-              400: '#38bdf8',
-              500: '#0ea5e9',
-              600: '#0284c7',
-              700: '#0369a1',
-              800: '#075985',
-              900: '#0c4a6e',
+              50: '#f0f9ff', 100: '#e0f2fe', 200: '#bae6fd', 300: '#7dd3fc',
+              400: '#38bdf8', 500: '#0ea5e9', 600: '#0284c7', 700: '#0369a1',
+              800: '#075985', 900: '#0c4a6e',
             }
           }
         }
@@ -211,7 +204,6 @@
     // 👉 Coloque sua chave ou use localStorage['gm_api_key'] ou parâmetro ?gm_key=
     const GM_API_KEY = 'YOUR_API_KEY_HERE';
 
-    // Cores/ícones por categoria (hotel em ciano para diferenciar)
     const categoryStyles = {
       attraction: { color: '#ef4444', icon: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png',    name: 'Atração' },
       park:       { color: '#10b981', icon: 'https://maps.google.com/mapfiles/ms/icons/green-dot.png',  name: 'Parque' },
@@ -261,7 +253,7 @@
     let lastRouteResult = null;          // rota principal (atual)
     let lastRouteResultSaved = null;     // snapshot para reverter após rota temporária
     let watchId = null;
-    let isTracking = false;              // <— controla modo GPS x mapa
+    let isTracking = false;              // controla modo GPS x mapa
     let currentPositionMarker = null;
     let pathCoordinates = [];            // breadcrumb do GPS
     let pathPolyline = null;
@@ -271,8 +263,8 @@
     const POI_SEARCH_DISTANCE_THRESHOLD = 500; // metros
     let searchTempMarker = null;         // marcador azul claro da busca (draggable)
     let mapClickMarker = null;           // marcador criado ao clicar no mapa
+    let lastKnownPosition = null;        // última posição do GPS (para cálculo de rota)
 
-    // ---------- ícone do “carro” rotacionável ----------
     function createCarIcon(headingDeg = 0) {
       const size = 36;
       const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
@@ -387,9 +379,10 @@
       if (!pathCoordinates) pathCoordinates = [];
 
       watchId = navigator.geolocation.watchPosition(pos => {
-        if (!isTracking) return; // segurança
+        if (!isTracking) return;
         const lat = pos.coords.latitude, lng = pos.coords.longitude;
         const p = { lat, lng };
+        lastKnownPosition = p;
 
         // atualizar marcador de posição atual
         if (!currentPositionMarker) {
@@ -409,9 +402,11 @@
         }
 
         // atualizar breadcrumb (evita pontos repetidos)
-        if (pathCoordinates.length === 0 || (Math.abs(pathCoordinates[pathCoordinates.length-1].lat - p.lat) > 0.00001 || Math.abs(pathCoordinates[pathCoordinates.length-1].lng - p.lng) > 0.00001)) {
+        if (pathCoordinates.length === 0 ||
+            Math.abs(pathCoordinates[pathCoordinates.length-1].lat - p.lat) > 0.00001 ||
+            Math.abs(pathCoordinates[pathCoordinates.length-1].lng - p.lng) > 0.00001) {
           pathCoordinates.push(p);
-          pathPolyline.setPath(pathCoordinates);
+          if (pathPolyline) pathPolyline.setPath(pathCoordinates);
         }
 
         // “seguir” usuário apenas no modo tracking
@@ -424,7 +419,7 @@
         if (tempDestination) {
           computeTempRoute(p, tempDestination);           // navegação temporária
         } else if (places && places.length >= 2) {
-          updateMainRouteFromCurrentPosition(p);          // navegação pela rota principal
+          updateMainRouteFromCurrentPosition(p);          // navegação pela rota principal (com origem = posição atual)
         }
 
       }, err => {
@@ -459,7 +454,6 @@
       try {
         map.panTo(new google.maps.LatLng(pos.lat, pos.lng));
         if (map.getZoom() < 15) map.setZoom(15);
-        // Ajuste de heading apenas se disponível
         if (pathCoordinates.length >= 2 && typeof map.setHeading === 'function') {
           const a = pathCoordinates[pathCoordinates.length - 2];
           const b = pathCoordinates[pathCoordinates.length - 1];
@@ -471,8 +465,9 @@
 
     // recalcula rota principal usando posição atual como origem (modo driving)
     function updateMainRouteFromCurrentPosition(currentPos) {
-      if (!isTracking) return;                  // evita “briga” com modo mapa
+      if (!isTracking) return;                  // só no modo GPS
       if (!places || places.length < 2) return;
+
       const waypoints = places.slice(1, -1).map(p => ({ location: { lat: p.lat, lng: p.lng }, stopover: true }));
       const request = {
         origin: { lat: currentPos.lat, lng: currentPos.lng },
@@ -593,7 +588,7 @@
         return;
       }
 
-      // Locais salvos: “pingos” por cor de categoria (sem numeração)
+      // Locais salvos: marcadores por categoria
       places.forEach((place) => {
         const cat = categoryStyles[place.category] || categoryStyles.other;
         const icon = { url: cat.icon, scaledSize: new google.maps.Size(36,36) };
@@ -616,6 +611,7 @@
         markers.push(marker);
       });
 
+      // 1 ponto só → sem rota
       if (places.length === 1) {
         map.setCenter(markers[0].getPosition()); map.setZoom(14);
         directionsRendererMain.setMap(null); directionsRendererMain.setDirections({ routes: [] });
@@ -625,34 +621,45 @@
         return;
       }
 
-      if (places.length >= 2) {
-        const waypoints = places.slice(1, -1).map(p => ({ location: { lat: p.lat, lng: p.lng }, stopover: true }));
-        const request = {
-          origin: { lat: places[0].lat, lng: places[0].lng },
-          destination: { lat: places[places.length -1].lat, lng: places[places.length -1].lng },
-          waypoints, travelMode: google.maps.TravelMode.DRIVING, optimizeWaypoints: true, provideRouteAlternatives: false
-        };
-        directionsService.route(request, (result, status) => {
-          if (status === 'OK') {
-            directionsRendererMain.setMap(map);
-            directionsRendererMain.setDirections(result);
-            lastRouteResult = result;
-            // snapshot para restaurar após rota temporária
+      // 2+ pontos → rota
+      const waypoints = places.slice(1, -1).map(p => ({ location: { lat: p.lat, lng: p.lng }, stopover: true }));
+      // ORIGEM: se estiver rastreando e temos posição, usa o GPS. Senão, usa o primeiro ponto salvo.
+      const origin = (isTracking && lastKnownPosition)
+        ? { lat: lastKnownPosition.lat, lng: lastKnownPosition.lng }
+        : { lat: places[0].lat, lng: places[0].lng };
+
+      const request = {
+        origin,
+        destination: { lat: places[places.length -1].lat, lng: places[places.length -1].lng },
+        waypoints, travelMode: google.maps.TravelMode.DRIVING, optimizeWaypoints: true, provideRouteAlternatives: false
+      };
+      directionsService.route(request, (result, status) => {
+        if (status === 'OK') {
+          directionsRendererMain.setMap(map);
+          directionsRendererMain.setDirections(result);
+          lastRouteResult = result;
+
+          // snapshot para restaurar após rota temporária (somente quando não tem rota temporária)
+          if (!tempDestination) {
             lastRouteResultSaved = JSON.parse(JSON.stringify(result));
-            try {
+          }
+
+          try {
+            if (!isTracking) {
               const bounds = new google.maps.LatLngBounds();
               result.routes[0].legs.forEach(leg => { bounds.extend(leg.start_location); bounds.extend(leg.end_location); });
               map.fitBounds(bounds);
-            } catch (err) { console.warn('bounds error', err); }
-            renderRouteDetails(result);
-            updateStats();
-          } else {
-            showToast('Erro ao calcular rota: ' + status, true);
-            lastRouteResult = null;
-            updateStats();
-          }
-        });
-      }
+            }
+          } catch (err) { console.warn('bounds error', err); }
+
+          renderRouteDetails(result);
+          updateStats();
+        } else {
+          showToast('Erro ao calcular rota: ' + status, true);
+          lastRouteResult = null;
+          updateStats();
+        }
+      });
     }
 
     function renderRouteDetails(routeResult) {
@@ -928,7 +935,6 @@
         const category = document.getElementById('place-category').value;
         if (!name) { showToast('Por favor, digite um nome para o local', true); return; }
         if (!map) { showToast('Mapa ainda não carregado. Aguarde.', true); return; }
-        // se o usuário usou a busca e arrastou o marker, usar esse ponto exato
         let lat, lng;
         if (searchTempMarker) {
           const p = searchTempMarker.getPosition();
@@ -1019,28 +1025,41 @@
 
       document.getElementById('clear-route').addEventListener('click', () => {
         if (places.length > 0 && confirm('Tem certeza que deseja limpar toda a rota?')) {
-          places = []; generalExpenses = []; saveData(); renderPlaces(); renderExpenses(); updateRoute();
-          stopGPSTracking();
-          if (currentPositionMarker) { currentPositionMarker.setMap(null); currentPositionMarker=null; }
-          if (pathPolyline) { pathPolyline.setMap(null); pathPolyline=null; }
+          places = []; generalExpenses = []; saveData(); renderPlaces(); renderExpenses();
+          // não destruir a polyline; apenas limpar
           pathCoordinates = [];
-          poiMarkers.forEach(m=>m.setMap(null)); poiMarkers=[];
+          if (pathPolyline) pathPolyline.setPath([]);
+          directionsRendererMain.setMap(null);
           directionsRendererTemp.setMap(null);
+          lastRouteResult = null; lastRouteResultSaved = null;
           tempDestination = null;
           document.getElementById('abort-temp').style.display = 'none';
+          poiMarkers.forEach(m=>m.setMap(null)); poiMarkers=[];
           clearSearchTempMarker();
+          if (mapClickMarker) { mapClickMarker.setMap(null); mapClickMarker = null; }
+
+          stopGPSTracking();
           showToast('Roteiro limpo com sucesso!');
+          document.getElementById('route-details').innerHTML = '';
+          updateStats();
         }
       });
 
       document.getElementById('start-trip').addEventListener('click', () => {
-        if (watchId) { stopGPSTracking(); showToast('Rastreamento parado'); }
-        else { 
+        // Alterna pelo estado de fato (isTracking), evitando inconsistência
+        if (isTracking) {
+          stopGPSTracking(); showToast('Rastreamento parado');
+        } else {
           if (places.length === 0) {
             showToast('Adicione pelo menos um local antes de iniciar a viagem', true);
             return;
           }
-          startGPSTracking(); 
+          startGPSTracking();
+          // ao entrar no modo GPS, se já existe uma rota principal, recalcule a partir da posição assim que ela chegar (via watchPosition)
+          // se já tivermos lastKnownPosition (permite caso de permissão concedida instantânea)
+          if (lastKnownPosition && places.length >= 2 && !tempDestination) {
+            updateMainRouteFromCurrentPosition(lastKnownPosition);
+          }
         }
       });
 
@@ -1070,6 +1089,7 @@
         console.warn('Substitua YOUR_API_KEY_HERE pela sua chave do Google Maps, ou salve em localStorage["gm_api_key"], ou passe ?gm_key=...');
       }
       const script = document.createElement('script');
+      const apiKeyToUse = key ? key : 'INVALID_KEY';
       script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyDwbThPtdCFKguYQggrrdJsiyJbPyDeKZc&libraries=places,directions,geometry&callback=initMap`;
       script.async = true;
       script.defer = true;
