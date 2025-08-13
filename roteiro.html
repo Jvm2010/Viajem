@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
-<title>Roteiro de Viagem — GPS + Roteirizador</title>
+<title>Roteiro de Viagem — GPS + Dias + Prioridades</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
@@ -56,6 +56,7 @@
 
   .btn{padding:8px 10px;border-radius:8px;font-weight:600}
   .divider{height:1px;background:#e5e7eb;margin:10px 0}
+  .muted{opacity:.6}
 </style>
 <link rel="manifest" href="data:application/manifest+json,{&quot;name&quot;:&quot;Roteiro de Viagem&quot;,&quot;short_name&quot;:&quot;Roteiro&quot;,&quot;start_url&quot;:&quot;.&quot;,&quot;display&quot;:&quot;standalone&quot;,&quot;background_color&quot;:&quot;#ffffff&quot;,&quot;theme_color&quot;:&quot;#0ea5e9&quot;}">
 </head>
@@ -67,7 +68,7 @@
     <div id="fs-map" class="fullscreen-map"></div>
 
     <div id="fs-hud" class="gps-hud" style="display:none">
-      <div class="hud-title">Navegação <span id="hud-mode" class="chip">GPS</span></div>
+      <div class="hud-title">Navegação <span id="hud-mode" class="chip">GPS</span> <span id="hud-day" class="chip">Dia 1</span> <span id="hud-travel" class="chip">Dirigindo</span></div>
       <div class="hud-line"><strong>Próxima parada:</strong> <span id="hud-next-name">—</span></div>
       <div class="hud-line"><strong>Distância:</strong> <span id="hud-next-dist">—</span> • <strong>ETA:</strong> <span id="hud-next-eta">—</span></div>
       <div class="hud-line" id="hud-next-step" style="margin-top:4px;font-size:13px;color:#334155">—</div>
@@ -98,9 +99,49 @@
 
 <main class="container mx-auto px-4 py-6 max-w-6xl">
 
+  <!-- Dia & Modo -->
+  <div class="bg-white p-4 mb-6 shadow-md rounded-xl">
+    <h2 class="text-lg font-semibold text-travel-800 mb-3">Dia e Modo de Locomoção</h2>
+    <div class="grid grid-cols-1 md:grid-cols-6 gap-3 items-end">
+      <div class="col-span-2">
+        <label class="block text-sm font-medium text-gray-700 mb-1">Dia atual</label>
+        <div class="flex gap-2">
+          <button id="day-prev" class="btn bg-travel-100 text-travel-700 hover:bg-travel-200">◀</button>
+          <select id="current-day" class="w-full p-3 border border-gray-200 rounded-lg">
+            <option value="1" selected>Dia 1</option>
+            <option value="2">Dia 2</option>
+            <option value="3">Dia 3</option>
+            <option value="4">Dia 4</option>
+            <option value="5">Dia 5</option>
+            <option value="6">Dia 6</option>
+            <option value="7">Dia 7</option>
+          </select>
+          <button id="day-next" class="btn bg-travel-100 text-travel-700 hover:bg-travel-200">▶</button>
+        </div>
+        <p class="text-xs text-gray-500 mt-1">O mapa e a rota exibem somente os locais do dia selecionado.</p>
+      </div>
+      <div class="col-span-2">
+        <label class="block text-sm font-medium text-gray-700 mb-1">Modo</label>
+        <select id="travel-mode" class="w-full p-3 border border-gray-200 rounded-lg">
+          <option value="DRIVING" selected>Dirigindo</option>
+          <option value="WALKING">A pé</option>
+        </select>
+        <p class="text-xs text-gray-500 mt-1">No modo a pé, o planejamento prioriza locais próximos.</p>
+      </div>
+      <div class="col-span-2">
+        <label class="block text-sm font-medium text-gray-700 mb-1">Início do dia</label>
+        <div class="flex gap-2">
+          <input id="day-start" type="time" value="09:00" class="w-full p-3 border border-gray-200 rounded-lg">
+          <input id="visit-duration" type="number" min="10" step="5" value="60" class="w-24 p-3 border border-gray-200 rounded-lg" title="Minutos por parada">
+        </div>
+        <p class="text-xs text-gray-500 mt-1">Usado para exportar agenda e validar horários de abertura.</p>
+      </div>
+    </div>
+  </div>
+
   <!-- Planejamento -->
   <div class="bg-white p-4 mb-6 shadow-md rounded-xl">
-    <h2 class="text-lg font-semibold text-travel-800 mb-3">Planejar Melhor Ordem (tipo Google Maps)</h2>
+    <h2 class="text-lg font-semibold text-travel-800 mb-3">Planejar Melhor Ordem</h2>
     <div class="grid grid-cols-1 md:grid-cols-6 gap-3 items-end">
       <label class="flex items-center gap-2 col-span-2">
         <input id="plan-use-current" type="checkbox" class="h-4 w-4 text-travel-600">
@@ -114,15 +155,14 @@
         <input id="plan-skip-visited" type="checkbox" class="h-4 w-4 text-travel-600" checked>
         <span class="text-sm text-gray-700">Ignorar <b>visitados</b></span>
       </label>
-      <button id="btn-plan-best" class="btn bg-travel-600 text-white hover:bg-travel-700 col-span-2">Planejar melhor rota</button>
+      <button id="btn-plan-best" class="btn bg-travel-600 text-white hover:bg-travel-700 col-span-2">Planejar</button>
 
       <div class="col-span-4 flex flex-wrap gap-2 md:justify-end">
-        <button id="btn-export-ics" class="btn bg-travel-100 text-travel-700 hover:bg-travel-200">Exportar .ics</button>
+        <button id="btn-export-ics" class="btn bg-travel-100 text-travel-700 hover:bg-travel-200">Exportar .ics (dia atual)</button>
         <button id="btn-export-json" class="btn bg-travel-100 text-travel-700 hover:bg-travel-200">Exportar JSON</button>
         <button id="btn-export-geojson" class="btn bg-travel-100 text-travel-700 hover:bg-travel-200">Exportar GeoJSON</button>
       </div>
     </div>
-    <p class="text-xs text-gray-500 mt-2">Use “Planejar melhor rota” para ordenar os pontos com base na sua posição e preferências. Exporte o roteiro para o calendário e faça backup dos locais.</p>
   </div>
 
   <!-- Filtros -->
@@ -178,10 +218,8 @@
       <div>
         <label class="block text-sm font-medium text-gray-700 mb-1">Pesquisar</label>
         <div class="relative">
-          <input id="search" type="text" class="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-travel-300 focus:border-travel-300" placeholder="Digite o nome de um local">
-          <button id="btn-search" type="button" class="absolute right-2 top-2 bg-travel-500 text-white p-2 rounded-lg" title="Buscar">
-            🔍
-          </button>
+          <input id="search" type="text" class="w-full p-3 border border-gray-200 rounded-lg" placeholder="Digite o nome de um local">
+          <button id="btn-search" type="button" class="absolute right-2 top-2 bg-travel-500 text-white p-2 rounded-lg" title="Buscar">🔍</button>
         </div>
       </div>
 
@@ -208,22 +246,51 @@
         </div>
       </div>
 
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Dia</label>
+          <input id="place-day" type="number" min="1" value="1" class="w-full p-3 border border-gray-200 rounded-lg">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Prioridade</label>
+          <select id="place-priority" class="w-full p-3 border border-gray-200 rounded-lg">
+            <option value="must">Quero muito</option>
+            <option value="maybe" selected>Talvez</option>
+            <option value="low">Baixa</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Abre</label>
+          <input id="place-open" type="time" class="w-full p-3 border border-gray-200 rounded-lg" placeholder="09:00">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Fecha</label>
+          <input id="place-close" type="time" class="w-full p-3 border border-gray-200 rounded-lg" placeholder="18:00">
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Notas</label>
+        <textarea id="place-notes" rows="2" class="w-full p-3 border border-gray-200 rounded-lg" placeholder="Dica, prato recomendado, ingresso, etc."></textarea>
+      </div>
+
       <button id="add-place" type="button" class="w-full bg-travel-600 text-white py-3 rounded-lg font-medium hover:bg-travel-700 transition">
         Adicionar Local
       </button>
-      <div class="text-xs text-gray-500">Após buscar, um pingo **azul claro** aparece e pode ser arrastado para ajustar a posição. Ao salvar, o pingo persistirá no mapa.</div>
+      <div class="text-xs text-gray-500">Após buscar, um pingo <b>azul claro</b> aparece (arrastável). Ao salvar, vira pino persistente com ícone e nome.</div>
     </div>
   </div>
 
-  <!-- Locais Salvos -->
+  <!-- Locais do Dia -->
   <div class="bg-white p-5 mb-6 shadow-md rounded-xl">
-    <h2 class="text-lg font-semibold text-travel-800 mb-4">Locais Salvos</h2>
+    <h2 class="text-lg font-semibold text-travel-800 mb-4">Locais do Dia</h2>
     <div id="places-list" class="space-y-3"></div>
+    <p class="text-xs text-gray-500 mt-2">Mostrando apenas os locais do <b>dia atual</b>. Use os botões para reordenar dentro do dia.</p>
   </div>
 
   <!-- Resumo -->
   <div class="bg-white p-5 shadow-md rounded-xl">
-    <h2 class="text-lg font-semibold text-travel-800 mb-4">Resumo</h2>
+    <h2 class="text-lg font-semibold text-travel-800 mb-4">Resumo (Dia Atual)</h2>
     <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
       <div class="bg-travel-50 p-3 rounded-lg"><p class="text-sm text-gray-600">Distância</p><p id="total-distance" class="text-xl font-bold text-travel-700">0 km</p></div>
       <div class="bg-travel-50 p-3 rounded-lg"><p class="text-sm text-gray-600">Tempo</p><p id="total-time" class="text-xl font-bold text-travel-700">0 min</p></div>
@@ -235,23 +302,20 @@
 
 </main>
 
-<!-- ===== SCRIPTS ===== -->
-<!-- Marker Clusterer (para agrupar pingos) -->
+<!-- Cluster -->
 <script src="https://unpkg.com/@googlemaps/markerclusterer/dist/index.min.js"></script>
 
 <script>
 /* ==================== CONFIG ==================== */
 const GM_API_KEY = 'AIzaSyDwbThPtdCFKguYQggrrdJsiyJbPyDeKZc'; // ou localStorage['gm_api_key'] / ?gm_key=
 const categoryStyles = {
-  attraction:{ color:'#ef4444', name:'Atração', iconEmoji:'📷' },
-  park:{ color:'#10b981', name:'Parque', iconEmoji:'🌳' },
-  hotel:{ color:'#14b8a6', name:'Hotel', iconEmoji:'🛏️' },
-  restaurant:{ color:'#f97316', name:'Restaurante', iconEmoji:'🍽️' },
-  gas_station:{ color:'#f59e0b', name:'Posto', iconEmoji:'⛽' },
-  supermarket:{ color:'#a3e635', name:'Mercado', iconEmoji:'🛒' },
-  museum:{ color:'#f59e0b', name:'Museu', iconEmoji:'🏛️' },
-  shopping:{ color:'#8b5cf6', name:'Compras', iconEmoji:'🛍️' },
-  other:{ color:'#6b7280', name:'Outro', iconEmoji:'📍' }
+  attraction:{ color:'#ef4444', name:'Atração', emoji:'📷' },
+  park:{ color:'#10b981', name:'Parque', emoji:'🌳' },
+  hotel:{ color:'#14b8a6', name:'Hotel', emoji:'🛏️' },
+  restaurant:{ color:'#f97316', name:'Restaurante', emoji:'🍽️' },
+  museum:{ color:'#f59e0b', name:'Museu', emoji:'🏛️' },
+  shopping:{ color:'#8b5cf6', name:'Compras', emoji:'🛍️' },
+  other:{ color:'#6b7280', name:'Outro', emoji:'📍' }
 };
 
 /* ==================== HELPERS ==================== */
@@ -260,34 +324,51 @@ const formatCurrency=v=>(Number(v)||0).toLocaleString('pt-BR',{style:'currency',
 const escapeHtml=str=>!str?'':String(str).replace(/[&<>"']/g,s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
 const hav=(a,b)=>{const R=6371000,toRad=d=>d*Math.PI/180;const dLat=toRad(b.lat-a.lat),dLng=toRad(b.lng-a.lng);const s1=Math.sin(dLat/2),s2=Math.sin(dLng/2);const A=s1*s1+Math.cos(toRad(a.lat))*Math.cos(toRad(b.lat))*s2*s2;return 2*R*Math.asin(Math.sqrt(A))};
 function computeHeading(a,b){const toRad=d=>d*Math.PI/180,toDeg=r=>r*180/Math.PI;const lat1=toRad(a.lat),lat2=toRad(b.lat),dLon=toRad(b.lng-a.lng);const y=Math.sin(dLon)*Math.cos(lat2);const x=Math.cos(lat1)*Math.sin(lat2)-Math.sin(lat1)*Math.cos(lat2)*Math.cos(dLon);return (toDeg(Math.atan2(y,x))+360)%360;}
-function nameIconSVG(text='Local', color='#0ea5e9', emoji='📍'){
-  const label=escapeHtml(text.length>18?text.slice(0,16)+'…':text);
-  const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="140" height="42" viewBox="0 0 140 42">
-    <defs><filter id="s" x="-10%" y="-10%" width="120%" height="120%"><feDropShadow dx="0" dy="1" stdDeviation="1" flood-opacity="0.25"/></filter></defs>
+function hexToRgba(hex,a=1){ if(!hex) return`rgba(0,0,0,${a})`; const h=hex.replace('#',''); const n=parseInt(h,16); const r=(n>>16)&255, g=(n>>8)&255, b=n&255; return`rgba(${r},${g},${b},${a})` }
+function markerSVG(name='Local', color='#0ea5e9', emoji='📍'){
+  const label = escapeHtml(name.length>20?name.slice(0,18)+'…':name);
+  const svg = `
+  <svg xmlns="http://www.w3.org/2000/svg" width="160" height="52" viewBox="0 0 160 52">
+    <defs><filter id="s" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="1" stdDeviation="1" flood-opacity="0.25"/></filter></defs>
     <g filter="url(#s)">
-      <rect x="22" y="4" rx="10" ry="10" width="114" height="30" fill="white" stroke="${color}" stroke-width="1.6"/>
-      <text x="34" y="24" font-size="13" font-family="Roboto, Arial" fill="#111827">${label}</text>
-      <circle cx="22" cy="19" r="12" fill="${color}"/>
-      <text x="16" y="23" font-size="14"> ${emoji}</text>
+      <path d="M22 6 a10 10 0 0 1 10 10 c0 10 -10 16 -10 22 c-0 -6 -10 -12 -10 -22 a10 10 0 0 1 10 -10z" fill="${color}"/>
+      <circle cx="22" cy="16" r="4" fill="#fff"/>
+      <rect x="36" y="8" rx="10" ry="10" width="118" height="32" fill="#fff" stroke="${color}" stroke-width="1.6"/>
+      <text x="52" y="28" font-size="14" font-family="Roboto, Arial" fill="#111827">${label}</text>
+      <text x="40" y="28" font-size="15"> ${emoji}</text>
     </g>
   </svg>`;
   return 'data:image/svg+xml;charset=UTF-8,'+encodeURIComponent(svg);
 }
+function parseTimeToToday(timeStr){ if(!timeStr) return null; const [h,m]=timeStr.split(':').map(Number); const d=new Date(); d.setHours(h||0,m||0,0,0); return d; }
+function minutesDiff(a,b){ return Math.round((a-b)/60000); }
 
 /* ==================== ESTADO ==================== */
 let map, fsMap, infoWindow, placesService, directionsService, directionsRendererMain, directionsRendererTemp;
 let places=[], generalExpenses=[];
-let markers=[], markerClustering=null;
+let markers=[], markersFS=[], clusterMain=null;
 let watchId=null, isTracking=false, followMode=true;
 let currentPositionMarker=null, currentPositionMarkerFS=null, pathCoordinates=[], pathPolyline=null;
-let tempDestination=null, lastRouteResult=null, lastRouteResultSaved=null;
-let searchTempMarker=null, mapClickMarker=null;
-let poiDebounceTimer=null, lastPOICenter=null;
-const POI_SEARCH_DISTANCE_THRESHOLD=500;
-let currentStopIndex=0; // próxima parada
+let tempDestination=null, tempNavActive=false, lastTempRecalcAt=0;
+let lastRouteResult=null, lastRouteResultSaved=null;
+let searchTempMarker=null, searchTempMarkerFS=null, mapClickMarker=null;
+let currentStopInDay=1; // índice dentro do dia (0 = origem do dia)
 const NEAR_STOP_THRESHOLD=120;
 let nextLegETA=null,nextLegDist=null,nextStepText='—';
-let lastRouteRecalcAt=0; const ROUTE_RECALC_MIN_MS=12000, ROUTE_RECALC_MIN_MOVE=60;
+let lastMainRecalcAt=0; const RECALC_MIN_MS=12000, RECALC_MIN_MOVE=60;
+let lastClosingWarnAt=0, lastWarnPlaceName=null;
+
+function getCurrentDay(){ return parseInt(document.getElementById('current-day').value)||1; }
+function getTravelMode(){ return document.getElementById('travel-mode').value === 'WALKING' ? google.maps.TravelMode.WALKING : google.maps.TravelMode.DRIVING; }
+function visitDurationMin(){ return parseInt(document.getElementById('visit-duration').value)||60; }
+function dayStartTime(){ return document.getElementById('day-start').value || '09:00'; }
+
+function getActivePlaces(includeVisited=true){
+  const d=getCurrentDay();
+  const arr = places.filter(p=> (p.day||1)===d );
+  return includeVisited ? arr : arr.filter(p=>!p.visited);
+}
+function getPriorityScore(p){ return p.priority==='must'?0 : p.priority==='maybe'?1 : 2; }
 
 /* ==================== MAPAS ==================== */
 function createCarIcon(headingDeg=0){
@@ -320,40 +401,14 @@ function initMap(){
     m.addListener('dragstart', ()=>{ if(isTracking) pauseFollow(); });
     m.addListener('zoom_changed', ()=>{ if(isTracking) pauseFollow(); });
   });
-  map.addListener('idle', ()=> schedulePOISearch(map.getCenter()));
 
   loadData();
+  // Ajusta dia inicial nos campos com base em última seleção
+  document.getElementById('place-day').value = getCurrentDay();
   buildFiltersListeners();
   buildUIListeners();
   renderPlaces();
   updateRoute();
-
-  // PWA SW (casca offline)
-  if('serviceWorker' in navigator){
-    try{
-      const swCode = `
-        self.addEventListener('install',e=>{e.waitUntil(caches.open('rv-shell').then(c=>c.addAll(['./'])))}); 
-        self.addEventListener('fetch',e=>{e.respondWith(fetch(e.request).catch(()=>caches.match('./')))});
-      `;
-      const blob=new Blob([swCode],{type:'text/javascript'}); const url=URL.createObjectURL(blob);
-      navigator.serviceWorker.register(url);
-    }catch(e){}
-  }
-}
-
-function onMapClickAdd(e){
-  if(mapClickMarker) mapClickMarker.setMap(null);
-  mapClickMarker=new google.maps.Marker({position:e.latLng,map,icon:{url:'https://maps.google.com/mapfiles/ms/icons/blue-dot.png',scaledSize:new google.maps.Size(36,36)},draggable:true});
-  infoWindow.setContent(`<div style="max-width:220px"><b>Novo Local</b><div class="divider"></div><button id="iw-add" class="btn bg-travel-600 text-white">Usar este ponto</button></div>`);
-  infoWindow.open(map,mapClickMarker);
-  google.maps.event.addListenerOnce(infoWindow,'domready',()=>{
-    document.getElementById('iw-add')?.addEventListener('click',()=>{
-      const pos=mapClickMarker.getPosition();
-      document.getElementById('place-name').value='Novo Local';
-      document.getElementById('search').value=`Lat: ${pos.lat().toFixed(6)}, Lng: ${pos.lng().toFixed(6)}`;
-      infoWindow.close(); mapClickMarker.setMap(null); mapClickMarker=null;
-    });
-  });
 }
 
 /* ==================== FULLSCREEN ==================== */
@@ -362,36 +417,43 @@ async function enterFullscreen(){
   try{ if(fsOverlay().requestFullscreen) await fsOverlay().requestFullscreen(); }catch(e){}
   fsOverlay().classList.add('active');
   document.getElementById('fs-hud').style.display='block';
-  directionsRendererMain.setMap(fsMap); directionsRendererTemp.setMap(fsMap); pathPolyline.setMap(fsMap);
+  directionsRendererMain.setMap(fsMap); directionsRendererTemp.setMap(fsMap);
+  pathPolyline.setMap(fsMap);
   document.getElementById('hud-mini').style.display='none';
+  mirrorSearchMarkerToFS(true);
   if(currentPositionMarker) recenter(true);
+  updateHUDDayModeBadges();
 }
 async function exitFullscreen(){
   try{ if(document.fullscreenElement) await document.exitFullscreen(); }catch(e){}
   fsOverlay().classList.remove('active');
   document.getElementById('fs-hud').style.display='none';
-  directionsRendererMain.setMap(map); directionsRendererTemp.setMap(map); pathPolyline.setMap(map);
+  directionsRendererMain.setMap(map); directionsRendererTemp.setMap(map);
+  pathPolyline.setMap(map);
   document.getElementById('hud-mini').style.display=isTracking?'block':'none';
+  mirrorSearchMarkerToFS(false);
   if(currentPositionMarker) recenter(false);
 }
 function activeMap(){ return (document.fullscreenElement || fsOverlay().classList.contains('active')) ? fsMap : map; }
+function updateHUDDayModeBadges(){
+  document.getElementById('hud-day').textContent = 'Dia ' + getCurrentDay();
+  document.getElementById('hud-travel').textContent = (getTravelMode()===google.maps.TravelMode.WALKING?'A pé':'Dirigindo');
+}
 
 /* ==================== GPS ==================== */
 function startGPSTracking({goFullscreen=true}={}){
   if(!navigator.geolocation){ showToast('Geolocalização não suportada',true); return; }
   if(isTracking) return;
-  isTracking=true; followMode=true; currentStopIndex = Math.max(1, currentStopIndex||1);
+  isTracking=true; followMode=true; tempNavActive=false; currentStopInDay=1;
   document.getElementById('hud-mini').style.display='block';
   if(goFullscreen) enterFullscreen();
   showToast('Iniciando GPS...');
-
   pathCoordinates=[]; pathPolyline.setPath(pathCoordinates);
 
   watchId=navigator.geolocation.watchPosition(pos=>{
     if(!isTracking) return;
     const p={lat:pos.coords.latitude,lng:pos.coords.longitude};
 
-    // marcador "você" nos dois mapas
     if(!currentPositionMarker){
       currentPositionMarker=new google.maps.Marker({position:p,map,icon:createCarIcon(0),zIndex:1000,title:'Você'});
       currentPositionMarkerFS=new google.maps.Marker({position:p,map:fsMap,icon:createCarIcon(0),zIndex:1000,title:'Você'});
@@ -404,9 +466,13 @@ function startGPSTracking({goFullscreen=true}={}){
     if(!pathCoordinates.length || hav(pathCoordinates[pathCoordinates.length-1],p)>3){ pathCoordinates.push(p); pathPolyline.setPath(pathCoordinates); }
     if(followMode) recenter();
 
-    // próxima parada + recálculos
-    if(tempDestination) maybeRecalcTempRoute(p,tempDestination);
-    else { updateNextStopHUD(p); maybeRecalcMainRouteFromCurrent(p); }
+    if(tempNavActive && tempDestination){
+      updateTempHUD(p, tempDestination);
+      maybeRecalcTempRoute(p, tempDestination);
+    } else {
+      updateNextStopHUD(p);
+      maybeRecalcMainRouteFromCurrent(p);
+    }
 
   }, err=>{
     showToast(err?.code===1?'Permissão negada':err?.code===2?'Localização indisponível':err?.code===3?'Tempo esgotado':'Erro de GPS',true);
@@ -414,11 +480,12 @@ function startGPSTracking({goFullscreen=true}={}){
   }, {enableHighAccuracy:true,maximumAge:3000,timeout:27000});
 
   const b=document.getElementById('start-trip'); b.textContent='Parar Rastreamento'; b.classList.remove('bg-travel-600'); b.classList.add('bg-red-600','tracking');
+  updateHUDDayModeBadges();
 }
 function stopGPSTracking(){
   try{ if(watchId) navigator.geolocation.clearWatch(watchId); }catch(e){}
   watchId=null; isTracking=false; followMode=false;
-  tempDestination=null; directionsRendererTemp.setMap(null);
+  tempNavActive=false; tempDestination=null; directionsRendererTemp.setMap(null);
   document.getElementById('abort-temp').style.display='none';
   document.getElementById('hud-mini').style.display='none';
   nextLegDist=nextLegETA=null; nextStepText='—'; updateHUDLabels();
@@ -433,9 +500,10 @@ function recenter(useFSAuto){
 }
 function pauseFollow(){ followMode=false; setTimeout(()=>{ if(isTracking) followMode=true; },8000); }
 
-/* ==================== HUD / Próxima parada ==================== */
+/* ==================== HUD ==================== */
 function updateHUDLabels(){
-  const next=places[currentStopIndex]||null;
+  const act=getActivePlaces(true);
+  const next=act[currentStopInDay]||null;
   const name=next?(next.name||'—'):'—';
   document.getElementById('hud-next-name').textContent=name;
   document.getElementById('hud-next-dist').textContent=nextLegDist||'—';
@@ -446,64 +514,99 @@ function updateHUDLabels(){
   document.getElementById('mini-next-eta').textContent=nextLegETA||'—';
 }
 function updateNextStopHUD(currentPos){
-  if(!places || places.length<2){ nextLegETA=nextLegDist=null; nextStepText='—'; updateHUDLabels(); return; }
-  if(currentStopIndex<1) currentStopIndex=1;
-  if(currentStopIndex>=places.length) currentStopIndex=places.length-1;
+  const act=getActivePlaces(true);
+  if(act.length<2){ nextLegETA=nextLegDist=null; nextStepText='—'; updateHUDLabels(); return; }
+  if(currentStopInDay<1) currentStopInDay=1;
+  if(currentStopInDay>=act.length) currentStopInDay=act.length-1;
 
-  const target=places[currentStopIndex];
+  const target=act[currentStopInDay];
   const dist=hav(currentPos,{lat:target.lat,lng:target.lng});
-  if(dist<=NEAR_STOP_THRESHOLD && currentStopIndex<places.length-1){
-    places[currentStopIndex].visited=true; saveData(); renderPlaces();
-    currentStopIndex++; showToast(`Chegou em ${target.name}. Próxima: ${places[currentStopIndex].name}`);
+  if(dist<=NEAR_STOP_THRESHOLD && currentStopInDay<act.length-1){
+    target.visited=true; saveData(); renderPlaces();
+    currentStopInDay++; showToast(`Chegou em ${target.name}. Próxima: ${act[currentStopInDay].name}`);
   }
-  const nextTarget=places[currentStopIndex];
-  directionsService.route({origin:currentPos,destination:{lat:nextTarget.lat,lng:nextTarget.lng},travelMode:google.maps.TravelMode.DRIVING},(res,status)=>{
+  const nextTarget=act[currentStopInDay];
+  directionsService.route({origin:currentPos,destination:{lat:nextTarget.lat,lng:nextTarget.lng},travelMode:getTravelMode()},(res,status)=>{
     if(status==='OK'){
       try{
         const leg=res.routes[0].legs[0];
         nextLegDist=leg.distance.text; nextLegETA=leg.duration.text;
         const step=(leg.steps&&leg.steps[0])?leg.steps[0]:null;
         nextStepText=step? step.instructions.replace(/<[^>]+>/g,'') : '—';
+        maybeWarnClosing(nextTarget, leg.duration.value);
       }catch(e){ nextLegDist=nextLegETA=null; nextStepText='—'; }
     }
     updateHUDLabels();
   });
 }
+function updateTempHUD(currentPos, poi){
+  directionsService.route({origin:currentPos, destination:{lat:poi.lat,lng:poi.lng}, travelMode:getTravelMode()}, (res, status)=>{
+    if(status==='OK'){
+      try{
+        const leg=res.routes[0].legs[0];
+        nextLegDist=leg.distance.text; nextLegETA=leg.duration.text;
+        const step=(leg.steps&&leg.steps[0])?leg.steps[0]:null;
+        nextStepText=step? step.instructions.replace(/<[^>]+>/g,'') : '—';
+        document.getElementById('hud-next-name').textContent = poi.name || '—';
+        document.getElementById('mini-next-name').textContent = poi.name || '—';
+      }catch(e){}
+    }
+    updateHUDLabels();
+  });
+}
+function maybeWarnClosing(place, etaSec){
+  if(!place.close) return;
+  const now=new Date();
+  const close=parseTimeToToday(place.close);
+  if(!close) return;
+  const left = minutesDiff(close, now); // minutos até fechar
+  const etaMin = Math.round((etaSec||0)/60);
+  if(left<=30 && etaMin>left){
+    const nowms=Date.now();
+    if(place.name===lastWarnPlaceName && (nowms-lastClosingWarnAt)<10*60*1000) return; // evita spam por 10min
+    lastWarnPlaceName=place.name; lastClosingWarnAt=nowms;
+    showToast(`${place.name} fecha em ${left} min e seu ETA é ${etaMin} min. Considere inverter a ordem.`);
+  }
+}
 
-/* ==================== Rotas ==================== */
+/* ==================== Rotas: principal ==================== */
 function maybeRecalcMainRouteFromCurrent(currentPos){
-  const now=Date.now(); if(now-lastRouteRecalcAt<ROUTE_RECALC_MIN_MS) return;
+  if(tempNavActive) return;
+  const now=Date.now(); if(now-lastMainRecalcAt<RECALC_MIN_MS) return;
   const last=pathCoordinates[pathCoordinates.length-1]||null;
-  if(last && hav(last,currentPos)<ROUTE_RECALC_MIN_MOVE) return;
-  lastRouteRecalcAt=now; updateMainRouteFromCurrentPosition(currentPos);
+  if(last && hav(last,currentPos)<RECALC_MIN_MOVE) return;
+  lastMainRecalcAt=now; updateMainRouteFromCurrentPosition(currentPos);
 }
 function updateMainRouteFromCurrentPosition(currentPos){
-  if(!isTracking || !places || places.length<2) return;
+  const act=getActivePlaces(true);
+  if(!isTracking || act.length<2) return;
   const origin={lat:currentPos.lat,lng:currentPos.lng};
-  const remaining=places.slice(Math.max(1,currentStopIndex), places.length-1).filter(p=>!p.visited);
+  const remaining=act.slice(Math.max(1,currentStopInDay), act.length-1).filter(p=>!p.visited);
   const waypoints=remaining.map(p=>({location:{lat:p.lat,lng:p.lng},stopover:true}));
-  const request={origin,destination:{lat:places[places.length-1].lat,lng:places[places.length-1].lng},waypoints,travelMode:google.maps.TravelMode.DRIVING,optimizeWaypoints:false};
+  const request={origin,destination:{lat:act[act.length-1].lat,lng:act[act.length-1].lng},waypoints,travelMode:getTravelMode(),optimizeWaypoints:false};
   directionsService.route(request,(result,status)=>{
     if(status==='OK'){
       directionsRendererMain.setOptions({preserveViewport:true});
       directionsRendererMain.setMap(activeMap());
       directionsRendererMain.setDirections(result);
       lastRouteResult=result; lastRouteResultSaved=JSON.parse(JSON.stringify(result));
-      renderRouteDetails(result); updateStats();
+      renderRouteDetails(result, act); updateStats();
     }
   });
 }
 
-/* ===== Rota temporária (“Ir agora”) ===== */
+/* ==================== Rota temporária ==================== */
 function setTemporaryDestination(poi){
-  tempDestination=poi; document.getElementById('abort-temp').style.display='block';
+  tempDestination=poi; tempNavActive=true;
+  document.getElementById('abort-temp').style.display='block';
   showToast(`Rota temporária: ${poi.name}`);
-  const start=currentPositionMarker? currentPositionMarker.getPosition(): map.getCenter();
-  if(!start){ showToast('Sem posição para iniciar.',true); return; }
-  computeTempRoute({lat:start.lat(),lng:start.lng()},poi,{fit:!isTracking});
+  const start = currentPositionMarker ? {lat:currentPositionMarker.getPosition().lat(), lng:currentPositionMarker.getPosition().lng()} : {lat:activeMap().getCenter().lat(), lng:activeMap().getCenter().lng()};
+  computeTempRoute(start, poi, {fit:!isTracking});
+  document.getElementById('hud-next-name').textContent = poi.name || '—';
+  document.getElementById('mini-next-name').textContent = poi.name || '—';
 }
 function computeTempRoute(startLatLng, poi, {fit=true}={}){
-  directionsService.route({origin:startLatLng,destination:{lat:poi.lat,lng:poi.lng},travelMode:google.maps.TravelMode.DRIVING},(result,status)=>{
+  directionsService.route({origin:startLatLng,destination:{lat:poi.lat,lng:poi.lng},travelMode:getTravelMode()},(result,status)=>{
     if(status==='OK'){
       directionsRendererTemp.setOptions({preserveViewport:isTracking});
       directionsRendererTemp.setMap(activeMap());
@@ -512,15 +615,15 @@ function computeTempRoute(startLatLng, poi, {fit=true}={}){
         try{ const b=new google.maps.LatLngBounds(); b.extend(result.routes[0].legs[0].start_location); b.extend(result.routes[0].legs[0].end_location); activeMap().fitBounds(b);}catch(e){}
       }
       renderTempDetails(result,poi);
-    }else showToast('Erro rota temporária: '+status,true);
+    } else showToast('Erro rota temporária: '+status,true);
   });
 }
-function maybeRecalcTempRoute(startLatLng, poi){
-  const now=Date.now(); if(now-lastRouteRecalcAt<ROUTE_RECALC_MIN_MS) return;
-  lastRouteRecalcAt=now; computeTempRoute(startLatLng,poi,{fit:false});
+function maybeRecalcTempRoute(currentPos, poi){
+  const now=Date.now(); if(now-lastTempRecalcAt<RECALC_MIN_MS) return;
+  lastTempRecalcAt=now; computeTempRoute(currentPos, poi, {fit:false});
 }
 function renderTempDetails(res,poi){
-  const c=document.getElementById('route-details'); let html='<h3 class="font-semibold mb-2">Detalhes do Percurso:</h3>';
+  const c=document.getElementById('route-details'); let html='<h3 class="font-semibold mb-2">Detalhes do Percurso (Dia Atual):</h3>';
   if(lastRouteResult?.routes) html+='<div class="text-sm text-gray-600 mb-2">Rota principal (salva)</div>';
   try{
     const leg=res.routes[0].legs[0];
@@ -531,72 +634,52 @@ function renderTempDetails(res,poi){
   c.innerHTML=html;
 }
 function abortTemporaryRoute(){
-  tempDestination=null; directionsRendererTemp.setMap(null);
+  tempNavActive=false; tempDestination=null; directionsRendererTemp.setMap(null);
   document.getElementById('abort-temp').style.display='none';
   showToast('Voltando à rota original.');
   if(lastRouteResultSaved){
     lastRouteResult=JSON.parse(JSON.stringify(lastRouteResultSaved));
     directionsRendererMain.setMap(activeMap()); directionsRendererMain.setDirections(lastRouteResult);
-    renderRouteDetails(lastRouteResult); updateStats();
-  }else document.getElementById('route-details').innerHTML='';
+    renderRouteDetails(lastRouteResult, getActivePlaces(true)); updateStats();
+  } else document.getElementById('route-details').innerHTML='';
 }
 
-/* ==================== POIs Próximos ==================== */
-function schedulePOISearch(center){
-  if(poiDebounceTimer) clearTimeout(poiDebounceTimer);
-  poiDebounceTimer=setTimeout(()=>{
-    if(lastPOICenter){
-      const dist=google.maps.geometry.spherical.computeDistanceBetween(new google.maps.LatLng(lastPOICenter.lat,lastPOICenter.lng), center);
-      if(dist<POI_SEARCH_DISTANCE_THRESHOLD) return;
-    }
-    searchNearbyPOIs(center);
-  },800);
-}
-function searchNearbyPOIs(center){
-  if(!map||!placesService) return;
-  const centerLL = center instanceof google.maps.LatLng ? center : new google.maps.LatLng(center.lat,center.lng);
-  lastPOICenter={lat: centerLL.lat(), lng: centerLL.lng()};
-  // (Mantemos só locais do usuário + POIs sob demanda via clique em busca; POIs automáticos podem poluir)
-}
-
-/* ==================== PINGOS (Locais Salvos) ==================== */
+/* ==================== PINGOS (Locais do dia) ==================== */
 function rebuildMarkers(){
-  // Remove tudo
-  markers.forEach(m=>m.setMap(null)); markers=[];
-  if(markerClustering){ markerClustering.clearMarkers(); markerClustering=null; }
+  markers.forEach(m=>m.setMap(null)); markers=[]; markersFS.forEach(m=>m.setMap(null)); markersFS=[];
+  if(clusterMain){ clusterMain.clearMarkers(); clusterMain=null; }
 
-  if(!places?.length) return;
-
+  const actAll = getActivePlaces(true);
+  if(!actAll?.length) return;
   const allowedCats = Array.from(document.querySelectorAll('.flt-cat')).filter(c=>c.checked).map(c=>c.value);
   const showVisited = document.getElementById('flt-visited').checked;
 
-  places.forEach(p=>{
+  actAll.forEach(p=>{
     if(!allowedCats.includes(p.category)) return;
     if(!showVisited && p.visited) return;
 
-    const style = categoryStyles[p.category]||categoryStyles.other;
-    const iconUrl = nameIconSVG(p.name||'Local', style.color, style.iconEmoji);
+    const style=categoryStyles[p.category]||categoryStyles.other;
+    const iconUrl = markerSVG(p.name||'Local', style.color, style.emoji);
 
     const m1=new google.maps.Marker({
       position:{lat:p.lat,lng:p.lng},
-      map: map,
-      title: p.name,
-      icon: { url: iconUrl, scaledSize: new google.maps.Size(140,42), anchor: new google.maps.Point(22,21) } // âncora no "pino"
+      map, title:p.name,
+      icon:{ url:iconUrl, scaledSize:new google.maps.Size(160,52), anchor:new google.maps.Point(22,48) }
     });
-
     const m2=new google.maps.Marker({
       position:{lat:p.lat,lng:p.lng},
-      map: fsMap,
-      title: p.name,
-      icon: { url: iconUrl, scaledSize: new google.maps.Size(140,42), anchor: new google.maps.Point(22,21) }
+      map:fsMap, title:p.name,
+      icon:{ url:iconUrl, scaledSize:new google.maps.Size(160,52), anchor:new google.maps.Point(22,48) }
     });
 
-    const openInfo = (marker)=>{
+    const openInfo=(marker)=>{
       const cat=categoryStyles[p.category]||categoryStyles.other;
-      const content=`<div style="max-width:260px">
-        <h3 style="margin:0 0 6px 0;font-weight:700">${escapeHtml(p.name)}</h3>
+      const content=`<div style="max-width:280px">
+        <h3 style="margin:0 0 6px 0;font-weight:700">${escapeHtml(p.name)} ${p.priority==='must'?'<span class="chip">Quero muito</span>':p.priority==='maybe'?'<span class="chip">Talvez</span>':'<span class="chip muted">Baixa</span>'}</h3>
         <div style="color:${cat.color};font-weight:600;margin-bottom:6px">${cat.name}</div>
         ${p.address?`<div style="font-size:12px;color:#6b7280">${escapeHtml(p.address)}</div>`:''}
+        ${(p.open||p.close)?`<div class="text-xs text-gray-600 mt-1">Horário: ${p.open?p.open:'—'} – ${p.close?p.close:'—'}</div>`:''}
+        ${p.notes?`<div class="text-xs text-gray-600 mt-2"><b>Notas:</b> ${escapeHtml(p.notes)}</div>`:''}
         <div class="divider"></div>
         <div style="display:flex;gap:6px;flex-wrap:wrap">
           <button id="iw-go" class="btn bg-travel-600 text-white">Ir agora</button>
@@ -607,7 +690,7 @@ function rebuildMarkers(){
       infoWindow.setContent(content); infoWindow.open(marker.getMap(), marker);
       google.maps.event.addListenerOnce(infoWindow,'domready',()=>{
         document.getElementById('iw-go')?.addEventListener('click',()=>{ setTemporaryDestination(p); infoWindow.close(); });
-        document.getElementById('iw-next')?.addEventListener('click',()=>{ const idx=places.findIndex(q=>q.lat===p.lat&&q.lng===p.lng); if(idx>=0){ currentStopIndex=Math.max(1,idx); renderPlaces(); showToast('Definido como próxima parada.'); } infoWindow.close(); });
+        document.getElementById('iw-next')?.addEventListener('click',()=>{ const act=getActivePlaces(true); const idx=act.findIndex(q=>q===p); if(idx>=0){ currentStopInDay=Math.max(1,idx); renderPlaces(); showToast('Próxima parada definida.'); } infoWindow.close(); });
         document.getElementById('iw-vis')?.addEventListener('click',()=>{ p.visited=!p.visited; saveData(); renderPlaces(); updateRoute(); infoWindow.close(); });
       });
     };
@@ -615,18 +698,18 @@ function rebuildMarkers(){
     m1.addListener('click',()=>openInfo(m1));
     m2.addListener('click',()=>openInfo(m2));
 
-    markers.push(m1);
+    markers.push(m1); markersFS.push(m2);
   });
 
-  // Cluster apenas no mapa principal (fs pode ficar sem cluster para leitura clara no carro)
-  markerClustering = new markerClusterer.MarkerClusterer({ map, markers, algorithm: new markerClusterer.SuperClusterAlgorithm({radius:60}) });
+  clusterMain = new markerClusterer.MarkerClusterer({ map, markers, algorithm: new markerClusterer.SuperClusterAlgorithm({radius:60}) });
 }
 
-/* ==================== RENDER / LISTAS ==================== */
+/* ==================== RENDER LISTA (dia) ==================== */
 function renderPlaces(){
   const el=document.getElementById('places-list'); el.innerHTML='';
-  if(!places.length){ el.innerHTML='<div class="text-center py-4 text-gray-500">Nenhum local adicionado</div>'; rebuildMarkers(); updateStats(); return; }
-  places.forEach((p,i)=>{
+  const act=getActivePlaces(true);
+  if(!act.length){ el.innerHTML='<div class="text-center py-4 text-gray-500">Nenhum local neste dia</div>'; rebuildMarkers(); updateStats(); document.getElementById('place-day').value=getCurrentDay(); return; }
+  act.forEach((p,i)=>{
     const cat=categoryStyles[p.category]||categoryStyles.other; const badgeBg=hexToRgba(cat.color,.12);
     const item=document.createElement('div'); item.className='place-item bg-white p-4 rounded-lg border border-gray-200';
     item.innerHTML=`<div class="flex justify-between items-start">
@@ -634,10 +717,12 @@ function renderPlaces(){
         <div class="flex items-center gap-2">
           <h3 class="font-semibold text-travel-800">${escapeHtml(p.name)}</h3>
           <span class="category-badge" style="background:${badgeBg};color:${cat.color}">${cat.name}</span>
+          ${p.priority==='must'?'<span class="chip">Quero muito</span>':p.priority==='maybe'?'<span class="chip">Talvez</span>':'<span class="chip muted">Baixa</span>'}
           ${p.visited?'<span class="visit-badge">Visitado</span>':''}
-          ${(isTracking && i===currentStopIndex)?'<span class="chip">Próxima</span>':''}
+          ${(isTracking && i===currentStopInDay)?'<span class="chip">Próxima</span>':''}
         </div>
-        ${p.address?`<p class="text-xs text-gray-500 mt-1">${escapeHtml(p.address)}</p>`:''}
+        ${(p.open||p.close)?`<p class="text-xs text-gray-500 mt-1">Horário: ${p.open?p.open:'—'} – ${p.close?p.close:'—'}</p>`:''}
+        ${p.notes?`<p class="text-xs text-gray-600 mt-1">${escapeHtml(p.notes)}</p>`:''}
       </div>
       <div class="flex gap-2 items-center">
         <button data-i="${i}" title="Ir agora" class="go-now p-1">▶</button>
@@ -653,23 +738,23 @@ function renderPlaces(){
   rebuildMarkers();
   updateStats();
 }
-function hexToRgba(hex,a=1){ if(!hex) return`rgba(0,0,0,${a})`; const h=hex.replace('#',''); const n=parseInt(h,16); const r=(n>>16)&255, g=(n>>8)&255, b=n&255; return`rgba(${r},${g},${b},${a})` }
 
-/* ==================== ROTA PRINCIPAL ==================== */
+/* ==================== ROTA PRINCIPAL (dia) ==================== */
 function updateRoute(){
   rebuildMarkers();
-  if(!places.length){
+  const act=getActivePlaces(true);
+  if(!act.length){
     directionsRendererMain.setMap(null); directionsRendererTemp.setMap(null);
     lastRouteResult=null; lastRouteResultSaved=null;
     document.getElementById('route-details').innerHTML=''; updateStats(); return;
   }
-  if(places.length===1){
+  if(act.length===1){
     directionsRendererMain.setMap(null);
-    activeMap().panTo(new google.maps.LatLng(places[0].lat,places[0].lng)); activeMap().setZoom(15);
+    activeMap().panTo(new google.maps.LatLng(act[0].lat,act[0].lng)); activeMap().setZoom(15);
     document.getElementById('route-details').innerHTML=''; updateStats(); return;
   }
-  const waypoints=places.slice(1,-1).map(p=>({location:{lat:p.lat,lng:p.lng},stopover:true}));
-  directionsService.route({origin:{lat:places[0].lat,lng:places[0].lng},destination:{lat:places[places.length-1].lat,lng:places[places.length-1].lng},waypoints,travelMode:google.maps.TravelMode.DRIVING,optimizeWaypoints:false},(res,status)=>{
+  const waypoints=act.slice(1,-1).map(p=>({location:{lat:p.lat,lng:p.lng},stopover:true}));
+  directionsService.route({origin:{lat:act[0].lat,lng:act[0].lng},destination:{lat:act[act.length-1].lat,lng:act[act.length-1].lng},waypoints,travelMode:getTravelMode(),optimizeWaypoints:false},(res,status)=>{
     if(status==='OK'){
       directionsRendererMain.setOptions({preserveViewport:isTracking});
       directionsRendererMain.setMap(activeMap());
@@ -678,18 +763,18 @@ function updateRoute(){
       if(!isTracking){
         try{ const b=new google.maps.LatLngBounds(); res.routes[0].legs.forEach(leg=>{b.extend(leg.start_location);b.extend(leg.end_location)}); activeMap().fitBounds(b);}catch(e){}
       }
-      renderRouteDetails(res); updateStats();
+      renderRouteDetails(res, act); updateStats();
     }else{
       showToast('Erro ao calcular rota: '+status,true); lastRouteResult=null; updateStats();
     }
   });
 }
-function renderRouteDetails(res){
-  const c=document.getElementById('route-details'); c.innerHTML='<h3 class="font-semibold mb-2">Detalhes do Percurso:</h3>';
+function renderRouteDetails(res, actArr){
+  const c=document.getElementById('route-details'); c.innerHTML='<h3 class="font-semibold mb-2">Detalhes do Percurso (Dia Atual):</h3>';
   if(!res?.routes?.[0]){ c.innerHTML+='<div class="text-gray-500">Sem detalhes.</div>'; return; }
   const legs=res.routes[0].legs||[];
   legs.forEach((leg,i)=>{
-    const from=places[i]||{name:'Ponto'}, to=places[i+1]||{name:'Destino'};
+    const from=actArr[i]||{name:'Ponto'}, to=actArr[i+1]||{name:'Destino'};
     const d=document.createElement('div'); d.className='bg-gray-50 p-3 rounded-lg mb-2';
     d.innerHTML=`<div class="flex justify-between items-center">
       <div><p class="font-medium">${escapeHtml(from.name)} → ${escapeHtml(to.name)}</p>
@@ -699,70 +784,132 @@ function renderRouteDetails(res){
   });
 }
 
-/* ==================== PLANEJAR MELHOR ORDEM ==================== */
+/* ==================== PLANEJAR ORDEM (prioridades/abertura) ==================== */
 function planBestOrder({useCurrent=false, roundTrip=false, skipVisited=true}={}){
-  if(places.length<2){ showToast('Adicione pelo menos 2 locais',true); return; }
-  const pts = places.map((p,idx)=>({...p,_idx:idx})).filter(p=>!skipVisited || !p.visited);
-  const havePos = !!currentPositionMarker;
-  const currentPos = havePos ? {lat:currentPositionMarker.getPosition().lat(), lng:currentPositionMarker.getPosition().lng()} : null;
+  const actAll=getActivePlaces(true);
+  if(actAll.length<2){ showToast('Adicione pelo menos 2 locais neste dia',true); return; }
 
-  let origin, destination, waypoints;
-  if(useCurrent && currentPos){
-    origin=currentPos;
-    if(roundTrip){ destination=currentPos; waypoints=pts.map(p=>({location:{lat:p.lat,lng:p.lng},stopover:true})); }
-    else { const last=pts[pts.length-1]; destination={lat:last.lat,lng:last.lng}; waypoints=pts.slice(0,-1).map(p=>({location:{lat:p.lat,lng:p.lng},stopover:true})); }
-  }else{
-    origin={lat:places[0].lat,lng:places[0].lng};
-    destination=roundTrip ? origin : {lat:places[places.length-1].lat,lng:places[places.length-1].lng};
-    const slice = roundTrip ? places : places.slice(1,-1);
-    waypoints=(roundTrip ? places.slice(1) : slice).filter(p=>!skipVisited||!p.visited).map(p=>({location:{lat:p.lat,lng:p.lng},stopover:true}));
+  // Aplica filtro de visitados
+  let act = skipVisited ? actAll.filter(p=>!p.visited) : actAll.slice();
+
+  // Ordena por prioridade antes (must -> maybe -> low)
+  act.sort((a,b)=>getPriorityScore(a)-getPriorityScore(b));
+
+  const mode=getTravelMode();
+
+  // Se modo a pé + posição atual: rota gulosa por proximidade
+  if(mode===google.maps.TravelMode.WALKING && useCurrent && currentPositionMarker){
+    const start={lat:currentPositionMarker.getPosition().lat(), lng:currentPositionMarker.getPosition().lng()};
+    const ordered = nearestNeighborOrder(start, act.slice(0, act.length-1)).concat([act[act.length-1]]);
+    applyNewOrderForDay(ordered, roundTrip);
+    postPlanTimeChecks(ordered);
+    return;
   }
 
-  directionsService.route({origin,destination,waypoints,travelMode:google.maps.TravelMode.DRIVING,optimizeWaypoints:true},(result,status)=>{
+  // Caso geral: Directions API com optimizeWaypoints
+  const origin = useCurrent && currentPositionMarker ? {lat:currentPositionMarker.getPosition().lat(), lng:currentPositionMarker.getPosition().lng()} : {lat:act[0].lat,lng:act[0].lng};
+  const destination = roundTrip ? origin : {lat:act[act.length-1].lat,lng:act[act.length-1].lng};
+  const middle = roundTrip ? act : act.slice(1,-1);
+  const waypoints = middle.map(p=>({location:{lat:p.lat,lng:p.lng},stopover:true}));
+
+  directionsService.route({origin,destination,waypoints,travelMode:mode,optimizeWaypoints:true},(result,status)=>{
     if(status!=='OK'){ showToast('Não foi possível otimizar: '+status,true); return; }
     try{
       const order=result.routes[0].waypoint_order||[];
-      let newPlaces;
-      if(useCurrent && currentPos){
-        const notVisited=places.filter(p=>!p.visited);
-        const base = roundTrip ? notVisited : notVisited.slice(0,-1);
-        const ordered = order.map(i=>base[i]).filter(Boolean);
-        newPlaces = roundTrip ? ordered.concat([]) : ordered.concat(notVisited.slice(-1));
-        const visited=places.filter(p=>p.visited);
-        newPlaces = visited.concat(newPlaces);
+      let newAct;
+      if(roundTrip){
+        const base = act;
+        const mid = order.map(i=>base[i]);
+        newAct = mid; // origem atual não está em 'act' quando useCurrent; tratamos abaixo
       }else{
-        if(roundTrip){
-          const base=places.slice(1);
-          const middle=order.map(i=>base[i]); newPlaces=[places[0],...middle,places[0]];
-        }else{
-          const base=places.slice(1,-1);
-          const middle=order.map(i=>base[i]); newPlaces=[places[0],...middle,places[places.length-1]];
-        }
+        const base = act.slice(1,-1);
+        const mid = order.map(i=>base[i]);
+        newAct = [act[0],...mid,act[act.length-1]];
       }
-      // limpar duplicados
-      const seen=new Set(); newPlaces=newPlaces.filter(p=>{const k=p.lat+','+p.lng+':'+(p.name||''); if(seen.has(k)) return false; seen.add(k); return true;});
-      places=newPlaces; saveData(); renderPlaces(); updateRoute(); showToast('Ordem otimizada!');
+
+      // Se useCurrent, removemos o primeiro do dia (pois origem é a posição), mantemos destino final
+      if(useCurrent && !roundTrip){
+        // já está adequado
+      }
+      if(useCurrent && roundTrip){
+        // só mantemos a ordem retornada (circuito)
+      }
+
+      applyNewOrderForDay(newAct, roundTrip);
+      postPlanTimeChecks(newAct);
+      showToast('Ordem otimizada!');
     }catch(e){ showToast('Falha ao aplicar ordem.',true); }
   });
 }
+function nearestNeighborOrder(start, arr){
+  const left=arr.slice(); const out=[];
+  let cur=start;
+  while(left.length){
+    let bi=0, bd=Infinity;
+    left.forEach((p,i)=>{ const d=hav(cur,{lat:p.lat,lng:p.lng}); if(d<bd){bd=d; bi=i;} });
+    const pick=left.splice(bi,1)[0]; out.push(pick); cur={lat:pick.lat,lng:pick.lng};
+  }
+  return out;
+}
+function applyNewOrderForDay(newAct, roundTrip){
+  const d=getCurrentDay();
+  const others=places.filter(p=> (p.day||1)!==d );
+  // preserva referência dos objetos (mesmos 'p' em newAct)
+  places = others.concat(newAct.map(p=>({...p, day:d})));
+  saveData(); renderPlaces(); updateRoute();
+}
+function postPlanTimeChecks(orderedAct){
+  // Verificação simples de janelas: percorre na ordem simulando horários de visita
+  if(!orderedAct.length) return;
+  const start = parseTimeToToday(dayStartTime()) || new Date();
+  let cursor = new Date(start);
+  const dur = visitDurationMin();
+  let anyWarn=false;
 
-/* ==================== BUSCA ==================== */
+  for(let i=0;i<orderedAct.length;i++){
+    const p=orderedAct[i];
+    // chegada estimada = cursor (desconsiderando deslocamento real para simplificar)
+    const arrv = new Date(cursor);
+    // janela
+    const open = parseTimeToToday(p.open);
+    const close = parseTimeToToday(p.close);
+    if(open && arrv<open){ anyWarn=true; showToast(`${p.name}: abre às ${p.open}. Talvez mover mais tarde.`); }
+    if(close && new Date(arrv.getTime()+dur*60000)>close){ anyWarn=true; showToast(`${p.name}: pode fechar antes do fim da visita.`); }
+    // avança cursor
+    cursor = new Date(arrv.getTime()+dur*60000);
+  }
+  if(anyWarn) showToast('Ajuste sugerido: verifique horários de abertura/fechamento.');
+}
+
+/* ==================== BUSCA (sempre pingo) ==================== */
 function showSearchTempMarker(latLng, placeName, address){
   const icon={url:'https://maps.google.com/mapfiles/ms/icons/lightblue-dot.png',scaledSize:new google.maps.Size(36,36)};
   if(searchTempMarker){ searchTempMarker.setPosition(latLng); searchTempMarker.setTitle(placeName||'Local'); }
   else{
     searchTempMarker=new google.maps.Marker({position:latLng,map,title:placeName||'Local',icon,draggable:true,animation:google.maps.Animation.BOUNCE,zIndex:1100});
     setTimeout(()=>{ searchTempMarker?.setAnimation(null); },1200);
-    searchTempMarker.addListener('dragend',()=>{ map.panTo(searchTempMarker.getPosition()); });
+    searchTempMarker.addListener('dragend',()=>{ map.panTo(searchTempMarker.getPosition()); mirrorSearchMarkerToFS(true); });
   }
+  mirrorSearchMarkerToFS(true, latLng, placeName);
   map.panTo(latLng); map.setZoom(15);
   document.getElementById('place-name').value ||= (placeName||'');
   document.getElementById('search').value     ||= (address||'');
-  // rolar lista até item correspondente (se já existir)
-  const idx = places.findIndex(p=>p.name===placeName);
-  if(idx>=0){ const el = document.querySelector(`#places-list > div:nth-child(${idx+1})`); el?.scrollIntoView({behavior:'smooth',block:'center'}); }
+  const act=getActivePlaces(true); const idx=act.findIndex(p=>p.name===placeName);
+  if(idx>=0){ document.querySelector(`#places-list > div:nth-child(${idx+1})`)?.scrollIntoView({behavior:'smooth',block:'center'}); }
 }
-
+function mirrorSearchMarkerToFS(show, latLng=null, title='Local'){
+  if(!fsMap) return;
+  if(show){
+    const pos = latLng || (searchTempMarker ? searchTempMarker.getPosition() : null);
+    if(!pos) return;
+    if(searchTempMarkerFS){ searchTempMarkerFS.setPosition(pos); }
+    else{
+      searchTempMarkerFS = new google.maps.Marker({ position: pos, map: fsMap, title, icon:{url:'https://maps.google.com/mapfiles/ms/icons/lightblue-dot.png',scaledSize:new google.maps.Size(36,36)}, zIndex:1100 });
+    }
+  }else{
+    if(searchTempMarkerFS){ searchTempMarkerFS.setMap(null); searchTempMarkerFS=null; }
+  }
+}
 function doSearch(){
   const q=document.getElementById('search').value.trim();
   if(!q){ showToast('Digite algo para pesquisar.',true); return; }
@@ -774,7 +921,6 @@ function doSearch(){
       if(p.geometry?.location) showSearchTempMarker(p.geometry.location,p.name||'',p.formatted_address||'');
       document.getElementById('place-name').value=p.name||'';
       document.getElementById('search').value=p.formatted_address||p.name||'';
-      // escolher categoria padrão
       let category='other'; const t=p.types||[];
       if(t.includes('park')||t.includes('natural_feature')) category='park';
       else if(t.includes('tourist_attraction')||t.includes('point_of_interest')) category='attraction';
@@ -788,14 +934,20 @@ function doSearch(){
   });
 }
 
-/* ==================== FILTROS ==================== */
+/* ==================== FILTROS / UI ==================== */
 function buildFiltersListeners(){
   document.querySelectorAll('.flt-cat').forEach(c=>c.addEventListener('change',rebuildMarkers));
   document.getElementById('flt-visited').addEventListener('change',rebuildMarkers);
 }
-
-/* ==================== UI LISTENERS ==================== */
 function buildUIListeners(){
+  // Dia
+  document.getElementById('current-day').addEventListener('change',()=>{ document.getElementById('place-day').value=getCurrentDay(); currentStopInDay=1; renderPlaces(); updateRoute(); updateHUDDayModeBadges(); });
+  document.getElementById('day-prev').addEventListener('click',()=>{ const sel=document.getElementById('current-day'); sel.value=Math.max(1,(parseInt(sel.value)||1)-1); sel.dispatchEvent(new Event('change')); });
+  document.getElementById('day-next').addEventListener('click',()=>{ const sel=document.getElementById('current-day'); sel.value=Math.min(7,(parseInt(sel.value)||1)+1); sel.dispatchEvent(new Event('change')); });
+
+  // Modo
+  document.getElementById('travel-mode').addEventListener('change',()=>{ updateRoute(); updateHUDDayModeBadges(); });
+
   // Planejamento
   document.getElementById('btn-plan-best').addEventListener('click',()=>{
     const useCurrent=document.getElementById('plan-use-current').checked;
@@ -804,16 +956,18 @@ function buildUIListeners(){
     if(useCurrent && !currentPositionMarker) showToast('Dica: inicie a viagem para usar sua posição.');
     planBestOrder({useCurrent:!!(useCurrent && currentPositionMarker),roundTrip,skipVisited});
   });
+
   // Exportações
   document.getElementById('btn-export-json').addEventListener('click',()=>downloadFile('roteiro.json', JSON.stringify({places,generalExpenses},null,2),'application/json'));
   document.getElementById('btn-export-geojson').addEventListener('click',()=>{
-    const fc={ type:'FeatureCollection', features: places.map(p=>({type:'Feature',properties:{name:p.name,category:p.category,value:p.value||0,visited:!!p.visited},geometry:{type:'Point',coordinates:[p.lng,p.lat]}})) };
-    downloadFile('roteiro.geojson', JSON.stringify(fc,null,2), 'application/geo+json');
+    const act=getActivePlaces(true);
+    const fc={ type:'FeatureCollection', features: act.map(p=>({type:'Feature',properties:{name:p.name,category:p.category,value:p.value||0,visited:!!p.visited,day:p.day||1},geometry:{type:'Point',coordinates:[p.lng,p.lat]}})) };
+    downloadFile('roteiro_dia'+getCurrentDay()+'.geojson', JSON.stringify(fc,null,2), 'application/geo+json');
   });
   document.getElementById('btn-export-ics').addEventListener('click', exportICS);
 
   // GPS
-  document.getElementById('start-trip').addEventListener('click',()=>{ if(isTracking){ stopGPSTracking(); showToast('Rastreamento parado'); } else { if(places.length<1){ showToast('Adicione locais primeiro',true); return; } startGPSTracking({goFullscreen:true}); } });
+  document.getElementById('start-trip').addEventListener('click',()=>{ if(isTracking){ stopGPSTracking(); showToast('Rastreamento parado'); } else { if(getActivePlaces(true).length<1){ showToast('Adicione locais neste dia',true); return; } startGPSTracking({goFullscreen:true}); } });
   document.getElementById('btn-enter-fs').addEventListener('click',()=>enterFullscreen());
   document.getElementById('btn-exit-fs').addEventListener('click',()=>exitFullscreen());
   document.getElementById('btn-recenter').addEventListener('click',()=>{ followMode=true; recenter(); });
@@ -821,12 +975,13 @@ function buildUIListeners(){
 
   document.getElementById('btn-next-go').addEventListener('click',()=>{
     if(!isTracking){ showToast('Inicie a viagem.',true); return; }
-    if(places.length<2) return;
-    if(currentStopIndex<1) currentStopIndex=1;
-    const t=places[currentStopIndex]; setTemporaryDestination({name:t.name, lat:t.lat, lng:t.lng});
+    const act=getActivePlaces(true); if(act.length<2) return;
+    if(currentStopInDay<1) currentStopInDay=1;
+    const t=act[currentStopInDay]; setTemporaryDestination({name:t.name, lat:t.lat, lng:t.lng});
   });
   document.getElementById('btn-skip-stop').addEventListener('click',()=>{
-    if(currentStopIndex<places.length-1){ places[currentStopIndex].visited=true; saveData(); currentStopIndex++; renderPlaces(); updateHUDLabels(); showToast('Parada pulada.'); }
+    const act=getActivePlaces(true);
+    if(currentStopInDay<act.length-1){ act[currentStopInDay].visited=true; saveData(); currentStopInDay++; renderPlaces(); updateHUDLabels(); showToast('Parada pulada.'); }
   });
   document.getElementById('btn-follow').addEventListener('click',()=>{ followMode=true; recenter(); });
 
@@ -836,7 +991,8 @@ function buildUIListeners(){
     if(places.length>0 && confirm('Limpar toda a rota e dados?')){
       places=[]; generalExpenses=[]; saveData(); renderPlaces(); updateRoute();
       stopGPSTracking();
-      searchTempMarker?.setMap(null); mapClickMarker?.setMap(null); searchTempMarker=null; mapClickMarker=null;
+      searchTempMarker?.setMap(null); searchTempMarkerFS?.setMap(null); mapClickMarker?.setMap(null);
+      searchTempMarker=null; searchTempMarkerFS=null; mapClickMarker=null;
       showToast('Tudo limpo!');
     }
   });
@@ -846,16 +1002,21 @@ function buildUIListeners(){
     const name=document.getElementById('place-name').value.trim();
     const value=parseFloat(document.getElementById('place-value').value)||0;
     const category=document.getElementById('place-category').value;
+    const day=parseInt(document.getElementById('place-day').value)||getCurrentDay();
+    const priority=document.getElementById('place-priority').value||'maybe';
+    const open=document.getElementById('place-open').value||'';
+    const close=document.getElementById('place-close').value||'';
+    const notes=document.getElementById('place-notes').value||'';
     if(!name){ showToast('Dê um nome ao local',true); return; }
     let lat,lng;
     if(searchTempMarker){ const p=searchTempMarker.getPosition(); lat=p.lat(); lng=p.lng(); }
     else if(mapClickMarker){ const p=mapClickMarker.getPosition(); lat=p.lat(); lng=p.lng(); }
     else { const c=map.getCenter(); lat=c?c.lat():-15.795; lng=c?c.lng():-47.891; }
-    const newPlace={name,value,category,lat,lng,address:document.getElementById('search').value||'',date:new Date().toISOString(),visited:false};
+    const newPlace={name,value,category,lat,lng,address:document.getElementById('search').value||'',date:new Date().toISOString(),visited:false,day,priority,open,close,notes};
     places.push(newPlace); saveData(); renderPlaces(); updateRoute(); showToast('Local adicionado!');
-    // limpar campos
-    document.getElementById('place-name').value=''; document.getElementById('place-value').value=''; /* mantém search p/ próxima busca */
-    searchTempMarker?.setMap(null); mapClickMarker?.setMap(null); searchTempMarker=null; mapClickMarker=null;
+    document.getElementById('place-name').value=''; document.getElementById('place-value').value=''; document.getElementById('place-notes').value='';
+    searchTempMarker?.setMap(null); searchTempMarkerFS?.setMap(null); mapClickMarker?.setMap(null);
+    searchTempMarker=null; searchTempMarkerFS=null; mapClickMarker=null;
   });
 
   // Busca
@@ -866,18 +1027,23 @@ function buildUIListeners(){
   document.getElementById('places-list').addEventListener('click',(e)=>{
     const btn=e.target.closest('button'); if(!btn) return;
     const i=parseInt(btn.dataset.i); if(isNaN(i)) return;
+    const act=getActivePlaces(true);
+    const p=act[i];
     if(btn.classList.contains('delete-place')){
-      if(confirm('Remover este local?')){ places.splice(i,1); saveData(); renderPlaces(); updateRoute(); showToast('Removido.'); }
-    }else if(btn.classList.contains('move-up') && i>0){
-      [places[i-1],places[i]]=[places[i],places[i-1]]; saveData(); renderPlaces(); updateRoute();
-    }else if(btn.classList.contains('move-down') && i<places.length-1){
-      [places[i+1],places[i]]=[places[i],places[i+1]]; saveData(); renderPlaces(); updateRoute();
+      if(confirm('Remover este local?')){
+        const idxGlobal=places.indexOf(p);
+        if(idxGlobal>=0){ places.splice(idxGlobal,1); saveData(); renderPlaces(); updateRoute(); showToast('Removido.'); }
+      }
+    }else if(btn.classList.contains('move-up')){
+      moveWithinDay(p,-1);
+    }else if(btn.classList.contains('move-down')){
+      moveWithinDay(p,1);
     }else if(btn.classList.contains('set-next')){
-      currentStopIndex=Math.max(1,i); renderPlaces(); showToast('Definido como próxima parada.');
+      currentStopInDay=Math.max(1,i); renderPlaces(); showToast('Próxima parada definida.');
     }else if(btn.classList.contains('go-now')){
-      setTemporaryDestination(places[i]);
+      setTemporaryDestination(p);
     }else if(btn.classList.contains('toggle-visited')){
-      places[i].visited=!places[i].visited; saveData(); renderPlaces(); updateRoute();
+      p.visited=!p.visited; saveData(); renderPlaces(); updateRoute();
     }
   });
 
@@ -885,12 +1051,26 @@ function buildUIListeners(){
   document.getElementById('fuel-efficiency').addEventListener('change',updateStats);
   document.getElementById('fuel-price').addEventListener('change',updateStats);
 }
+function moveWithinDay(placeObj, dir){
+  const d=getCurrentDay();
+  const indices=places.map((p,idx)=>({p,idx})).filter(o=>(o.p.day||1)===d).map(o=>o.idx);
+  const iGlobal=places.indexOf(placeObj);
+  const pos=indices.indexOf(iGlobal);
+  if(pos<0) return;
+  const targetPos=pos+dir;
+  if(targetPos<0 || targetPos>=indices.length) return;
+  const jGlobal=indices[targetPos];
+  [places[iGlobal],places[jGlobal]]=[places[jGlobal],places[iGlobal]];
+  saveData(); renderPlaces(); updateRoute();
+}
 
 /* ==================== PERSISTÊNCIA ==================== */
 function loadData(){
   try{
     const sp=localStorage.getItem('travel_places'); if(sp) places=JSON.parse(sp);
     const se=localStorage.getItem('travel_expenses'); if(se) generalExpenses=JSON.parse(se);
+    // migrate: garantir 'day' e 'priority'
+    places.forEach(p=>{ if(!p.day) p.day=1; if(!p.priority) p.priority='maybe'; });
   }catch(e){ places=[]; generalExpenses=[]; }
 }
 function saveData(){
@@ -900,16 +1080,19 @@ function saveData(){
   }catch(e){}
 }
 
-/* ==================== ESTATÍSTICAS ==================== */
+/* ==================== ESTATÍSTICAS (dia) ==================== */
 function updateStats(){
-  const placesCost=(places||[]).reduce((s,p)=>s+(parseFloat(p.value)||0),0);
+  const act=getActivePlaces(true);
+  const placesCost=(act||[]).reduce((s,p)=>s+(parseFloat(p.value)||0),0);
   const expensesCost=(generalExpenses||[]).reduce((s,e)=>s+(parseFloat(e.amount)||0),0);
   let totalDistance=0,totalTime=0,fuelCost=0;
   if(lastRouteResult?.routes?.[0]){
     lastRouteResult.routes[0].legs.forEach(leg=>{ totalDistance += leg.distance?.value||0; totalTime += leg.duration?.value||0; });
-    const fe=parseFloat(document.getElementById('fuel-efficiency').value)||10;
-    const fp=parseFloat(document.getElementById('fuel-price').value)||5.5;
-    const fuelConsumption=(totalDistance/1000)/fe; fuelCost=fuelConsumption*fp;
+    if(getTravelMode()===google.maps.TravelMode.DRIVING){
+      const fe=parseFloat(document.getElementById('fuel-efficiency').value)||10;
+      const fp=parseFloat(document.getElementById('fuel-price').value)||5.5;
+      const fuelConsumption=(totalDistance/1000)/fe; fuelCost=fuelConsumption*fp;
+    } else fuelCost=0;
   }
   document.getElementById('total-distance').textContent=(totalDistance/1000).toFixed(1)+' km';
   const h=Math.floor(totalTime/3600), m=Math.round((totalTime%3600)/60);
@@ -926,25 +1109,41 @@ function downloadFile(filename, content, type='text/plain'){
   setTimeout(()=>URL.revokeObjectURL(a.href),1500);
 }
 function exportICS(){
-  if(!places.length){ showToast('Sem locais para exportar.',true); return; }
-  // simples: cada local como 1h de visita, sequencial a partir de hoje 09:00
-  const startBase=new Date(); startBase.setHours(9,0,0,0);
-  let cursor = new Date(startBase);
+  const act=getActivePlaces(true);
+  if(!act.length){ showToast('Sem locais neste dia para exportar.',true); return; }
+  const dur=visitDurationMin();
+  let cursor=parseTimeToToday(dayStartTime())||new Date();
   let ics='BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//RoteiroViagem//pt-BR//EN\r\n';
-  places.forEach((p,idx)=>{
-    const dtStart = formatICSDate(cursor);
-    const end = new Date(cursor.getTime()+60*60*1000); // 1h
-    const dtEnd = formatICSDate(end);
-    const uid = 'rv-'+idx+'-'+Date.now()+'@roteiro';
-    const locText = (p.address||(`${p.lat},${p.lng}`)).replace(/[\n\r]/g,' ');
-    ics += `BEGIN:VEVENT\r\nUID:${uid}\r\nDTSTART:${dtStart}\r\nDTEND:${dtEnd}\r\nSUMMARY:${escapeICS(p.name)}\r\nLOCATION:${escapeICS(locText)}\r\nEND:VEVENT\r\n`;
-    cursor = new Date(end.getTime()+15*60*1000); // +15min deslocamento simbólico
+  act.forEach((p,idx)=>{
+    const dtStart=formatICSDate(cursor);
+    const end=new Date(cursor.getTime()+dur*60000);
+    const dtEnd=formatICSDate(end);
+    const uid='rv-d'+getCurrentDay()+'-'+idx+'-'+Date.now()+'@roteiro';
+    const locText=(p.address||(`${p.lat},${p.lng}`)).replace(/[\n\r]/g,' ');
+    ics+=`BEGIN:VEVENT\r\nUID:${uid}\r\nDTSTART:${dtStart}\r\nDTEND:${dtEnd}\r\nSUMMARY:${escapeICS(p.name)}\r\nLOCATION:${escapeICS(locText)}\r\nDESCRIPTION:${escapeICS((p.notes||''))}\r\nEND:VEVENT\r\n`;
+    cursor=new Date(end.getTime()+15*60000);
   });
   ics+='END:VCALENDAR\r\n';
-  downloadFile('roteiro.ics', ics, 'text/calendar');
+  downloadFile(`roteiro_dia${getCurrentDay()}.ics`, ics, 'text/calendar');
 }
 function formatICSDate(d){ const pad=n=>String(n).padStart(2,'0'); return d.getUTCFullYear()+pad(d.getUTCMonth()+1)+pad(d.getUTCDate())+'T'+pad(d.getUTCHours())+pad(d.getUTCMinutes())+pad(d.getUTCSeconds())+'Z'; }
 function escapeICS(s){ return (s||'').replace(/([,;])/g,'\\$1'); }
+
+/* ==================== MAP CLICK ==================== */
+function onMapClickAdd(e){
+  if(mapClickMarker) mapClickMarker.setMap(null);
+  mapClickMarker=new google.maps.Marker({position:e.latLng,map,icon:{url:'https://maps.google.com/mapfiles/ms/icons/blue-dot.png',scaledSize:new google.maps.Size(36,36)},draggable:true});
+  infoWindow.setContent(`<div style="max-width:220px"><b>Novo Local</b><div class="divider"></div><button id="iw-add" class="btn bg-travel-600 text-white">Usar este ponto</button></div>`);
+  infoWindow.open(map,mapClickMarker);
+  google.maps.event.addListenerOnce(infoWindow,'domready',()=>{
+    document.getElementById('iw-add')?.addEventListener('click',()=>{
+      const pos=mapClickMarker.getPosition();
+      document.getElementById('place-name').value='Novo Local';
+      document.getElementById('search').value=`Lat: ${pos.lat().toFixed(6)}, Lng: ${pos.lng().toFixed(6)}`;
+      infoWindow.close(); mapClickMarker.setMap(null); mapClickMarker=null;
+    });
+  });
+}
 
 /* ==================== CARREGAR GOOGLE MAPS ==================== */
 function getApiKey(){
